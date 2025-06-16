@@ -40,7 +40,9 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
       return response.json();
     },
     onSuccess: () => {
+      // Force refresh of connection status
       queryClient.invalidateQueries({ queryKey: ['/api/connections'] });
+      queryClient.refetchQueries({ queryKey: ['/api/connections'] });
       toast({
         title: "Connection Successful",
         description: "Connected to Exchange Online successfully",

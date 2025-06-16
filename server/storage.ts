@@ -101,7 +101,7 @@ export class MemStorage implements IStorage {
     // Initialize connection statuses
     const connections = [
       { serviceName: 'PowerShell', status: isDemoMode ? 'connected' as const : 'disconnected' as const },
-      { serviceName: 'Exchange Online', status: isDemoMode ? 'connected' as const : 'disconnected' as const },
+      { serviceName: 'Exchange Online', status: isDemoMode ? 'disconnected' as const : 'disconnected' as const },
       { serviceName: 'Places Module', status: isDemoMode ? 'connected' as const : 'disconnected' as const },
     ];
 

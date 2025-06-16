@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ModuleInstallation } from "@/components/module-installation";
 import { PowerShellTerminal } from "@/components/powershell-terminal";
 import { AuthDialog } from "@/components/auth-dialog";
+import { TenantInfo } from "@/components/tenant-info";
 
 export default function SetupPage() {
   const [tenantDomain, setTenantDomain] = useState("");
@@ -66,6 +67,9 @@ export default function SetupPage() {
   return (
     <div className="space-y-8">
       {/* Installation Steps */}
+      {/* Tenant Information */}
+      <TenantInfo />
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Module Installation */}
         <ModuleInstallation />
