@@ -1,0 +1,87 @@
+
+Powershell Queries for Places
+Create Building, Floor, Section, Desks/Rooms
+
+Create a new Building
+> New-Place -Type Building -Name 'ThoughtsWin' -Description 'ThoughtsWin Systems' -CountryOrRegion 'CA' -State 'BC' -City 'Surrey' -Street '9900 King Geoarge Blvd' -PostalCode 'V3T 0K7'
+ 
+> New-Place -Type Building -Name 'VancouverHouse' -Description 'Vancouver House' -CountryOrRegion 'CA' -State 'BC' -City 'Vancouver' -Street '3301-1480 Howe St' -PostalCode 'V6Z 0G5'
+ 
+# Update Building Meta Data, in this example we are going to Add phone number
+> Get-Placev3 -Type Building
+> Set-PlaceV3 -Identity 2b0b9b4b-525d-4718-a1b6-75c8ab3c8f56 -Phone '+1 604 496 1799'
+> Get-Placev3 -Type Building
+ 
+
+Create a new Floor for the Building
+> New-Place -DisplayName "Main" -Type Floor -Parent "2b0b9b4b-525d-4718-a1b6-75c8ab3c8f56" -Description "Main Floor- 204"
+ 
+
+Create Section in the Floor
+>  new-place -Displayname "Foyer" -Description "Customer Service" -Type Section -ParentId 31d81535-c9f1-410b-a723-bf0a5c7f7485
+ 
+
+Create a Desk
+    # Create a Desk
+> get-Placev3 -Type building
+> $building = Get-PlaceV3 -Type Building | Where-Object -Property DisplayName -eq 'ThoughtsWin'
+> $floor = Get-PlaceV3 -AncestorId $building.PlaceId | Where-Object -Property DisplayName -eq 'Main'
+> $section = Get-PlaceV3 -AncestorId $floor.PlaceId | Where-Object -Property DisplayName -eq 'Foyer'
+ 
+> New-Place -type Desk -Name "Desks A" -ParentId $section.PlaceId
+ 
+   # Make the desk bookable
+> $desk= Get-PlaceV3 -AncestorId $section.PlaceId | Where-Object -Property DisplayName -eq 'Desks A'
+> Connect-ExchangeOnline
+> $emailAddress = "desksa.foyer.thoughtswin@cloudpharmacy.com"
+> $mbx = New-Mailbox -Room "Desks A" -PrimarySmtpAddress $emailAddress
+> $mbx = Get-Mailbox -Identity "desksa-foyer-thoughtswin@cloudpharmacy.com"
+> Set-Mailbox $mbx.Identity -Type Desk -HiddenFromAddressListsEnabled $true
+> Set-PlaceV3 $desk.PlaceId -Mailbox $mbx.Identity
+ 
+  # Set desk details
+> Set-User $mbx.Identity `
+   -Company "ThoughtsWin" `
+   -City "Surrey" `
+   -StateOrProvince "BC" `
+   -CountryOrRegion "Canada"
+> Set-CalendarProcessing $mbx.Identity `
+   -BookingWindowInDays 30 `
+   -MaximumDurationInMinutes 600
+ 
+ 
+
+Create workspace OR Disk Pool (spaces)
+  # Create the desk pool
+> Connect-ExchangeOnline
+> New-Mailbox -Room -Alias 404-cloud -Name "404-Cloud" -PrimarySmtpAddress "404cloud.offices.thoughtswin@cloudpharmacy.com" `
+   | Set-Mailbox -Type Workspace `
+   -DisplayName "404-Cloud" `
+   -HiddenFromAddressListsEnabled $True
+ 
+> Set-User -Identity "404-cloud" `
+   -Company "ThoughtsWin" `
+   -City "Surrey" `
+   -State "BC" `
+   -CountryOrRegion "Canada"
+ 
+> Set-Mailbox -Identity "404-cloud" `
+   -ResourceCapacity 4
+ 
+> Set-CalendarProcessing -Identity "404-cloud" `
+   -EnforceCapacity $True `
+   -BookingWindowInDay 30 `
+   -MaximumDurationInMinutes 600
+ 
+  # Make the desk pool available to book
+> $building = Get-PlaceV3 -Type Building | Where-Object -Property DisplayName -eq 'ThoughtsWin'
+> $floor = Get-PlaceV3 -AncestorId $building.PlaceId | Where-Object -Property DisplayName -eq 'Main'
+> $section = Get-PlaceV3 -AncestorId $floor.PlaceId | Where-Object -Property DisplayName -eq 'Offices'
+> Set-PlaceV3 -Identity 404-cloud -Capacity 4 -ParentId $section.PlaceId
+ 
+  # update the workspace/disk (move to different section)
+> $building = Get-PlaceV3 -Type Building | Where-Object -Property DisplayName -eq 'ThoughtsWin'
+> $floor = Get-PlaceV3 -AncestorId $building.PlaceId | Where-Object -Property DisplayName -eq 'Main'
+> $section = Get-PlaceV3 -AncestorId $floor.PlaceId | Where-Object -Property DisplayName -eq 'Foyer'
+> $workspace = Get-PlaceV3 -Identity '404-cloud'
+> Set-PlaceV3 -Identity $workspace.PlaceId -ParentId $section.PlaceId
