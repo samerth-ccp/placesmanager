@@ -196,7 +196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: 'Failed to fetch buildings' });
       }
 
-      const buildingsData = await powerShellService.parsePlacesOutput(buildingsResult.output);
+      const buildingsData = await powerShellService.parsePlacesOutput(`Building\n${buildingsResult.output}`);
       
       // Store buildings in database
       for (const buildingData of buildingsData) {
@@ -204,7 +204,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!existing) {
           await storage.createBuilding({
             placeId: buildingData.PlaceId,
-            name: buildingData.DisplayName || buildingData.Name,
+            name: buildingData.DisplayName || buildingData.Name || 'Unknown Building',
             description: buildingData.Description || null,
             countryOrRegion: buildingData.CountryOrRegion || null,
             state: buildingData.State || null,
@@ -219,54 +219,119 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get all floors, sections, and desks
       const floorsResult = await powerShellService.getPlaces('Floor');
-      const sectionsResult = await powerShellService.getPlaces('Section');
+      const sectionsResult = await powerShellService.getPlaces('Section');  
       const desksResult = await powerShellService.getPlaces('Desk');
+
+      if (floorsResult.exitCode === 0) {
+        const floorsData = await powerShellService.parsePlacesOutput(`Floor\n${floorsResult.output}`);
+        for (const floorData of floorsData) {
+          const building = await storage.getBuildingByPlaceId(floorData.ParentId);
+          if (building) {
+            const existing = await storage.getFloorByPlaceId(floorData.PlaceId);
+            if (!existing) {
+              await storage.createFloor({
+                placeId: floorData.PlaceId,
+                name: floorData.DisplayName || floorData.Name || 'Unknown Floor',
+                description: floorData.Description || null,
+                buildingId: building.id,
+                parentPlaceId: floorData.ParentId,
+              });
+            }
+          }
+        }
+      }
+
+      if (sectionsResult.exitCode === 0) {
+        const sectionsData = await powerShellService.parsePlacesOutput(`Section\n${sectionsResult.output}`);
+        for (const sectionData of sectionsData) {
+          const floor = await storage.getFloorByPlaceId(sectionData.ParentId);
+          if (floor) {
+            const existing = await storage.getSectionByPlaceId(sectionData.PlaceId);
+            if (!existing) {
+              await storage.createSection({
+                placeId: sectionData.PlaceId,
+                name: sectionData.DisplayName || sectionData.Name || 'Unknown Section',
+                description: sectionData.Description || null,
+                floorId: floor.id,
+                parentPlaceId: sectionData.ParentId,
+              });
+            }
+          }
+        }
+      }
+
+      if (desksResult.exitCode === 0) {
+        const desksData = await powerShellService.parsePlacesOutput(`Desk\n${desksResult.output}`);
+        for (const deskData of desksData) {
+          const section = await storage.getSectionByPlaceId(deskData.ParentId);
+          if (section) {
+            const existing = await storage.getDeskByPlaceId(deskData.PlaceId);
+            if (!existing) {
+              await storage.createDesk({
+                placeId: deskData.PlaceId,
+                name: deskData.DisplayName || deskData.Name || 'Unknown Desk',
+                type: deskData.Type || 'Desk',
+                sectionId: section.id,
+                parentPlaceId: deskData.ParentId,
+                emailAddress: deskData.EmailAddress || null,
+                capacity: deskData.Capacity || null,
+                isBookable: deskData.IsBookable || false,
+              });
+            }
+          }
+        }
+      }
 
       // Log commands
       await storage.addCommandHistory({
-        command: 'Get-PlaceV3 -Type Building',
-        output: buildingsResult.output,
+        command: 'Get-PlaceV3 -Type Building, Floor, Section, Desk',
+        output: `Buildings: ${buildingsData.length} retrieved`,
         status: 'success',
       });
 
       res.json({ 
         message: 'Places refreshed successfully',
         buildings: buildingsData.length,
+        summary: 'Places hierarchy synchronized with Microsoft 365'
       });
     } catch (error) {
-      res.status(500).json({ message: 'Failed to refresh places' });
+      console.error('Places refresh error:', error);
+      res.status(500).json({ 
+        message: 'Failed to refresh places',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
   app.get('/api/places/hierarchy', async (req, res) => {
     try {
       const buildings = await storage.getAllBuildings();
-      const hierarchy = [];
+      const hierarchy: any[] = [];
 
       for (const building of buildings) {
         const floors = await storage.getFloorsByBuildingId(building.id);
-        const buildingNode = {
+        const buildingNode: any = {
           ...building,
-          floors: [],
+          floors: [] as any[],
         };
 
         for (const floor of floors) {
           const sections = await storage.getSectionsByFloorId(floor.id);
-          const floorNode = {
+          const floorNode: any = {
             ...floor,
-            sections: [],
+            sections: [] as any[],
           };
 
           for (const section of sections) {
             const desks = await storage.getDesksBySectionId(section.id);
-            const sectionNode = {
+            const sectionNode: any = {
               ...section,
               desks,
             };
-            floorNode.sections.push(sectionNode);
+            (floorNode.sections as any[]).push(sectionNode);
           }
 
-          buildingNode.floors.push(floorNode);
+          (buildingNode.floors as any[]).push(floorNode);
         }
 
         hierarchy.push(buildingNode);
@@ -274,7 +339,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(hierarchy);
     } catch (error) {
-      res.status(500).json({ message: 'Failed to get places hierarchy' });
+      console.error('Hierarchy fetch error:', error);
+      res.status(500).json({ 
+        message: 'Failed to get places hierarchy',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
