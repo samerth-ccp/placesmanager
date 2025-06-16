@@ -20,12 +20,23 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
 
   const connectMutation = useMutation({
     mutationFn: async (domain?: string) => {
-      const response = await fetch('/api/connect/exchange', {
+      const response = await fetch('/api/connections/exchange', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tenantDomain: domain }),
       });
-      if (!response.ok) throw new Error('Connection failed');
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = 'Connection failed';
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
       return response.json();
     },
     onSuccess: () => {
