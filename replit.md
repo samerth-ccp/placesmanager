@@ -119,6 +119,7 @@ No configuration required - the switch happens automatically based on `process.p
 - June 16, 2025: Fixed Windows networking compatibility issues for local deployment
 - June 16, 2025: Fixed React rendering errors and added authentication dialog for Exchange Online connection
 - June 16, 2025: Fixed Windows deployment 500 errors and added proper connection requirement checking
+- June 16, 2025: Fixed PowerShell command syntax (Connect-ExchangeOnline now uses -UserPrincipalName) and enhanced console execution with comprehensive demo responses
 
 ## User Preferences
 
