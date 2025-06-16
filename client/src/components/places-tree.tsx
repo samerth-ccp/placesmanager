@@ -36,7 +36,7 @@ export function PlacesTree() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: hierarchy, isLoading, error } = useQuery({
+  const { data: hierarchy, isLoading, error } = useQuery<any[]>({
     queryKey: ['/api/places/hierarchy'],
   });
 
@@ -46,15 +46,24 @@ export function PlacesTree() {
       queryClient.invalidateQueries({ queryKey: ['/api/places/hierarchy'] });
       toast({
         title: "Places Refreshed",
-        description: "Configuration has been updated from PowerShell",
+        description: "Configuration has been updated from Microsoft 365",
       });
     },
-    onError: () => {
-      toast({
-        title: "Refresh Failed",
-        description: "Failed to refresh places configuration",
-        variant: "destructive",
-      });
+    onError: (error: any) => {
+      const errorData = error?.response?.data;
+      if (errorData?.requiresConnection) {
+        toast({
+          title: "Connection Required",
+          description: "Please connect to Exchange Online first",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Refresh Failed",
+          description: errorData?.error || "Failed to refresh places configuration",
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -239,7 +248,7 @@ export function PlacesTree() {
 
         {hasFloors && isExpanded && (
           <div className="pl-8 pb-4 space-y-2">
-            {building.floors.map(renderFloorNode)}
+            {(building.floors || []).map(renderFloorNode)}
           </div>
         )}
       </div>
@@ -321,7 +330,7 @@ export function PlacesTree() {
               </div>
             ))}
           </div>
-        ) : hierarchy && hierarchy.length > 0 ? (
+        ) : hierarchy && Array.isArray(hierarchy) && hierarchy.length > 0 ? (
           <div className="space-y-2">
             {hierarchy.map(renderBuildingNode)}
           </div>

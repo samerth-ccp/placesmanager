@@ -190,10 +190,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Places hierarchy endpoints
   app.get('/api/places/refresh', async (req, res) => {
     try {
+      // Check if Exchange Online is connected (only in live mode)
+      if (!powerShellService.isInDemoMode()) {
+        const exchangeConnection = await storage.getConnectionStatus('Exchange Online');
+        if (!exchangeConnection || exchangeConnection.status !== 'connected') {
+          return res.status(400).json({ 
+            message: 'Exchange Online connection required',
+            requiresConnection: true,
+            error: 'Please connect to Exchange Online before refreshing places data'
+          });
+        }
+      }
+
       // Get all buildings
       const buildingsResult = await powerShellService.getPlaces('Building');
       if (buildingsResult.exitCode !== 0) {
-        return res.status(500).json({ message: 'Failed to fetch buildings' });
+        return res.status(500).json({ 
+          message: 'Failed to fetch buildings',
+          error: buildingsResult.error || 'PowerShell command failed',
+          requiresConnection: !powerShellService.isInDemoMode()
+        });
       }
 
       const buildingsData = await powerShellService.parsePlacesOutput(`Building\n${buildingsResult.output}`);
