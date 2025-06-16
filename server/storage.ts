@@ -78,18 +78,21 @@ export class MemStorage implements IStorage {
   }
 
   private initializeDefaults() {
+    // Demo mode for non-Windows environments
+    const isDemoMode = process.platform !== 'win32';
+
     // Initialize module statuses
     const modules = [
-      { moduleName: 'ExchangeOnlineManagement', status: 'not_installed' as const },
-      { moduleName: 'Microsoft.Graph.Places', status: 'not_installed' as const },
-      { moduleName: 'Microsoft.Places.PowerShell', status: 'not_installed' as const },
+      { moduleName: 'ExchangeOnlineManagement', status: isDemoMode ? 'installed' as const : 'not_installed' as const },
+      { moduleName: 'Microsoft.Graph.Places', status: isDemoMode ? 'installed' as const : 'not_installed' as const },
+      { moduleName: 'Microsoft.Places.PowerShell', status: isDemoMode ? 'installed' as const : 'not_installed' as const },
     ];
 
     modules.forEach(module => {
       const status: ModuleStatus = {
         id: this.currentId++,
         ...module,
-        version: null,
+        version: isDemoMode ? (module.moduleName === 'ExchangeOnlineManagement' ? '3.0.0' : module.moduleName === 'Microsoft.Graph.Places' ? '1.0.0' : '2.1.0') : null,
         lastChecked: new Date(),
       };
       this.moduleStatuses.set(module.moduleName, status);
@@ -97,20 +100,143 @@ export class MemStorage implements IStorage {
 
     // Initialize connection statuses
     const connections = [
-      { serviceName: 'PowerShell', status: 'disconnected' as const },
-      { serviceName: 'Exchange Online', status: 'disconnected' as const },
-      { serviceName: 'Places Module', status: 'disconnected' as const },
+      { serviceName: 'PowerShell', status: isDemoMode ? 'connected' as const : 'disconnected' as const },
+      { serviceName: 'Exchange Online', status: isDemoMode ? 'connected' as const : 'disconnected' as const },
+      { serviceName: 'Places Module', status: isDemoMode ? 'connected' as const : 'disconnected' as const },
     ];
 
     connections.forEach(connection => {
       const status: ConnectionStatus = {
         id: this.currentId++,
         ...connection,
-        lastConnected: null,
+        lastConnected: isDemoMode ? new Date() : null,
         errorMessage: null,
       };
       this.connectionStatuses.set(connection.serviceName, status);
     });
+
+    // Add demo data if in demo mode
+    if (isDemoMode) {
+      this.initializeDemoData();
+    }
+  }
+
+  private initializeDemoData() {
+    // Create demo buildings
+    const building1: Building = {
+      id: this.currentId++,
+      placeId: '2b0b9b4b-525d-4718-a1b6-75c8ab3c8f56',
+      name: 'ThoughtsWin',
+      description: 'ThoughtsWin Systems',
+      countryOrRegion: 'CA',
+      state: 'BC',
+      city: 'Surrey',
+      street: '9900 King George Blvd',
+      postalCode: 'V3T 0K7',
+      phone: '+1 604 496 1799',
+      isActive: true,
+      createdAt: new Date(),
+    };
+
+    const building2: Building = {
+      id: this.currentId++,
+      placeId: '3c1c8c5c-636e-5829-b2c7-86d9bc4d9g67',
+      name: 'VancouverHouse',
+      description: 'Vancouver House',
+      countryOrRegion: 'CA',
+      state: 'BC',
+      city: 'Vancouver',
+      street: '3301-1480 Howe St',
+      postalCode: 'V6Z 0G5',
+      phone: null,
+      isActive: true,
+      createdAt: new Date(),
+    };
+
+    this.buildings.set(building1.id, building1);
+    this.buildings.set(building2.id, building2);
+
+    // Create demo floors
+    const floor1: Floor = {
+      id: this.currentId++,
+      placeId: '31d81535-c9f1-410b-a723-bf0a5c7f7485',
+      buildingId: building1.id,
+      parentPlaceId: building1.placeId,
+      name: 'Main',
+      description: 'Main Floor- 204',
+      displayName: 'Main',
+      createdAt: new Date(),
+    };
+
+    const floor2: Floor = {
+      id: this.currentId++,
+      placeId: '42e92646-d0e2-521c-c834-97eacd5e8g96',
+      buildingId: building2.id,
+      parentPlaceId: building2.placeId,
+      name: 'Ground',
+      description: 'Ground Floor',
+      displayName: 'Ground',
+      createdAt: new Date(),
+    };
+
+    this.floors.set(floor1.id, floor1);
+    this.floors.set(floor2.id, floor2);
+
+    // Create demo sections
+    const section1: Section = {
+      id: this.currentId++,
+      placeId: '53f03757-e1f3-632d-d945-a8fbde6f9ha7',
+      floorId: floor1.id,
+      parentPlaceId: floor1.placeId,
+      name: 'Foyer',
+      description: 'Customer Service',
+      displayName: 'Foyer',
+      createdAt: new Date(),
+    };
+
+    const section2: Section = {
+      id: this.currentId++,
+      placeId: '64g14868-f2g4-743e-ea56-b9gcef7g0ib8',
+      floorId: floor1.id,
+      parentPlaceId: floor1.placeId,
+      name: 'Offices',
+      description: 'Office Spaces',
+      displayName: 'Offices',
+      createdAt: new Date(),
+    };
+
+    this.sections.set(section1.id, section1);
+    this.sections.set(section2.id, section2);
+
+    // Create demo desks
+    const desk1: Desk = {
+      id: this.currentId++,
+      placeId: '75h25979-g3h5-854f-fb67-cahdg8h1jc9',
+      sectionId: section1.id,
+      parentPlaceId: section1.placeId,
+      name: 'Desks A',
+      type: 'Desk',
+      emailAddress: 'desksa.foyer.thoughtswin@cloudpharmacy.com',
+      capacity: 1,
+      isBookable: true,
+      createdAt: new Date(),
+    };
+
+    const desk2: Desk = {
+      id: this.currentId++,
+      placeId: '86i3608a-h4i6-965g-gc78-dbieg9i2kd0',
+      sectionId: section2.id,
+      parentPlaceId: section2.placeId,
+      name: '404-Cloud',
+      type: 'Workspace',
+      emailAddress: '404cloud.offices.thoughtswin@cloudpharmacy.com',
+      capacity: 4,
+      isBookable: true,
+      createdAt: new Date(),
+    };
+
+    this.desks.set(desk1.id, desk1);
+    this.desks.set(desk2.id, desk2);
   }
 
   // User methods

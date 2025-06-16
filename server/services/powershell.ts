@@ -41,6 +41,11 @@ export class PowerShellService {
   async executeCommand(command: string, timeoutMs: number = 30000): Promise<PowerShellResult> {
     const startTime = Date.now();
 
+    // Demo mode for non-Windows environments
+    if (process.platform !== 'win32') {
+      return this.executeDemoCommand(command, startTime);
+    }
+
     return new Promise((resolve, reject) => {
       const isWindows = process.platform === 'win32';
       const psCommand = isWindows ? 'powershell.exe' : 'pwsh';
@@ -88,7 +93,125 @@ export class PowerShellService {
     });
   }
 
+  private async executeDemoCommand(command: string, startTime: number): Promise<PowerShellResult> {
+    const duration = Date.now() - startTime + Math.random() * 500; // Simulate execution time
+    
+    // Demo responses for common commands
+    if (command.includes('Get-Module')) {
+      return {
+        output: `
+ModuleType Version    Name                                ExportedCommands
+---------- -------    ----                                ----------------
+Script     3.0.0      ExchangeOnlineManagement           {Add-DistributionGroupMember...}
+Script     1.0.0      Microsoft.Graph.Places             {Get-MgPlaceRoom, New-MgPlace...}
+Script     2.1.0      Microsoft.Places.PowerShell        {Get-PlaceV3, New-Place...}
+`.trim(),
+        exitCode: 0,
+        duration,
+      };
+    }
+
+    if (command.includes('Get-PlaceV3') && command.includes('Building')) {
+      return {
+        output: `
+PlaceId                               DisplayName       Description                    CountryOrRegion State City    Street                    PostalCode
+-------                               -----------       -----------                    --------------- ----- ----    ------                    ----------
+2b0b9b4b-525d-4718-a1b6-75c8ab3c8f56 ThoughtsWin       ThoughtsWin Systems            CA              BC    Surrey  9900 King George Blvd    V3T 0K7
+3c1c8c5c-636e-5829-b2c7-86d9bc4d9g67 VancouverHouse    Vancouver House                CA              BC    Vancouver 3301-1480 Howe St    V6Z 0G5
+`.trim(),
+        exitCode: 0,
+        duration,
+      };
+    }
+
+    if (command.includes('Get-PlaceV3') && command.includes('Floor')) {
+      return {
+        output: `
+PlaceId                               DisplayName       Description                    ParentId
+-------                               -----------       -----------                    --------
+31d81535-c9f1-410b-a723-bf0a5c7f7485 Main              Main Floor- 204                2b0b9b4b-525d-4718-a1b6-75c8ab3c8f56
+42e92646-d0e2-521c-c834-97eacd5e8g96 Ground            Ground Floor                   3c1c8c5c-636e-5829-b2c7-86d9bc4d9g67
+`.trim(),
+        exitCode: 0,
+        duration,
+      };
+    }
+
+    if (command.includes('Get-PlaceV3') && command.includes('Section')) {
+      return {
+        output: `
+PlaceId                               DisplayName       Description                    ParentId
+-------                               -----------       -----------                    --------
+53f03757-e1f3-632d-d945-a8fbde6f9ha7 Foyer             Customer Service               31d81535-c9f1-410b-a723-bf0a5c7f7485
+64g14868-f2g4-743e-ea56-b9gcef7g0ib8 Offices           Office Spaces                 31d81535-c9f1-410b-a723-bf0a5c7f7485
+`.trim(),
+        exitCode: 0,
+        duration,
+      };
+    }
+
+    if (command.includes('Get-PlaceV3') && command.includes('Desk')) {
+      return {
+        output: `
+PlaceId                               DisplayName       Type       ParentId                             EmailAddress                        Capacity IsBookable
+-------                               -----------       ----       --------                             ------------                        -------- ----------
+75h25979-g3h5-854f-fb67-cahdg8h1jc9  Desks A           Desk       53f03757-e1f3-632d-d945-a8fbde6f9ha7 desksa.foyer.thoughtswin@...        1        True
+86i3608a-h4i6-965g-gc78-dbieg9i2kd0  404-Cloud         Workspace  64g14868-f2g4-743e-ea56-b9gcef7g0ib8 404cloud.offices.thoughtswin@...    4        True
+`.trim(),
+        exitCode: 0,
+        duration,
+      };
+    }
+
+    if (command.includes('Connect-ExchangeOnline')) {
+      return {
+        output: 'Successfully connected to Exchange Online. Authentication completed.',
+        exitCode: 0,
+        duration,
+      };
+    }
+
+    if (command.includes('New-Place')) {
+      return {
+        output: `Successfully created new place with ID: ${this.generateGuid()}`,
+        exitCode: 0,
+        duration,
+      };
+    }
+
+    // Default demo response
+    return {
+      output: `[DEMO MODE] Command executed: ${command}\nThis is running in demo mode. Deploy to Windows for full PowerShell functionality.`,
+      exitCode: 0,
+      duration,
+    };
+  }
+
+  private generateGuid(): string {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
   async checkModuleInstalled(moduleName: string): Promise<ModuleInfo> {
+    // Demo mode for non-Windows environments
+    if (process.platform !== 'win32') {
+      // Simulate module availability in demo mode
+      const moduleVersions: Record<string, string> = {
+        'ExchangeOnlineManagement': '3.0.0',
+        'Microsoft.Graph.Places': '1.0.0',
+        'Microsoft.Places.PowerShell': '2.1.0',
+      };
+
+      return {
+        name: moduleName,
+        version: moduleVersions[moduleName] || '1.0.0',
+        status: 'installed',
+      };
+    }
+
     try {
       const result = await this.executeCommand(
         `Get-Module -ListAvailable -Name "${moduleName}" | Select-Object Name, Version | ConvertTo-Json`

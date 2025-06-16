@@ -70,10 +70,19 @@ export function Sidebar({
           <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
             <Building className="text-white" size={20} />
           </div>
-          <div>
+          <div className="flex-1">
             <h1 className="text-lg font-semibold text-neutral-800">Places Admin</h1>
             <p className="text-sm text-neutral-600">Microsoft Places Management</p>
           </div>
+        </div>
+        <div className="mt-3 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+            <span className="text-xs font-medium text-orange-700">Demo Mode</span>
+          </div>
+          <p className="text-xs text-orange-600 mt-1">
+            Running on Linux with simulated PowerShell responses
+          </p>
         </div>
       </div>
 
