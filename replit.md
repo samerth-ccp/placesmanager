@@ -116,6 +116,7 @@ No configuration required - the switch happens automatically based on `process.p
 ## Changelog
 - June 16, 2025: Initial setup and demo mode implementation
 - June 16, 2025: Added platform detection, demo data, and cross-platform PowerShell service
+- June 16, 2025: Fixed Windows networking compatibility issues for local deployment
 
 ## User Preferences
 
