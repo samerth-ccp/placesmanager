@@ -118,6 +118,7 @@ No configuration required - the switch happens automatically based on `process.p
 - June 16, 2025: Added platform detection, demo data, and cross-platform PowerShell service
 - June 16, 2025: Fixed Windows networking compatibility issues for local deployment
 - June 16, 2025: Fixed React rendering errors and added authentication dialog for Exchange Online connection
+- June 16, 2025: Fixed Windows deployment 500 errors and added proper connection requirement checking
 
 ## User Preferences
 
