@@ -21,6 +21,7 @@ import { AuthDialog } from "@/components/auth-dialog";
 export default function SetupPage() {
   const [tenantDomain, setTenantDomain] = useState("");
   const [authMethod, setAuthMethod] = useState("interactive");
+  const [showAuthDialog, setShowAuthDialog] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -83,40 +84,19 @@ export default function SetupPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="tenantDomain">Tenant Domain</Label>
-              <Input
-                id="tenantDomain"
-                type="text"
-                value={tenantDomain}
-                onChange={(e) => setTenantDomain(e.target.value)}
-                placeholder="contoso.onmicrosoft.com"
-                className="mt-1"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="authMethod">Authentication Method</Label>
-              <Select value={authMethod} onValueChange={setAuthMethod}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="interactive">Interactive Login</SelectItem>
-                  <SelectItem value="certificate">Certificate Authentication</SelectItem>
-                  <SelectItem value="app">App Registration</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="text-sm text-muted-foreground space-y-2">
+              <p>After installing the required modules, connect to your Exchange Online environment to manage Microsoft Places.</p>
+              <p>You'll need Microsoft 365 admin credentials with Places Administrator permissions.</p>
             </div>
 
             <div className="flex space-x-3 pt-4">
               <Button
                 className="flex-1"
-                onClick={() => connectExchangeMutation.mutate()}
+                onClick={() => setShowAuthDialog(true)}
                 disabled={connectExchangeMutation.isPending}
               >
-                <Settings size={16} className="mr-2" />
-                Connect Exchange
+                <Plug size={16} className="mr-2" />
+                Connect to Exchange Online
               </Button>
               <Button
                 variant="secondary"
@@ -134,6 +114,12 @@ export default function SetupPage() {
 
       {/* Command Execution Terminal */}
       <PowerShellTerminal />
+
+      {/* Authentication Dialog */}
+      <AuthDialog 
+        open={showAuthDialog} 
+        onOpenChange={setShowAuthDialog}
+      />
     </div>
   );
 }
