@@ -24,9 +24,24 @@ export function PowerShellTerminal() {
   });
 
   const executeCommandMutation = useMutation({
-    mutationFn: (cmd: string) => apiRequest('POST', '/api/commands/execute', { command: cmd }),
+    mutationFn: async (cmd: string) => {
+      const response = await fetch('/api/commands/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ command: cmd }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to execute command');
+      }
+      
+      return response.json();
+    },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/commands/history'] });
+      queryClient.refetchQueries({ queryKey: ['/api/commands/history'] });
       setCommand("");
       setCommandHistory(prev => [...prev, command]);
       setHistoryIndex(-1);
@@ -38,10 +53,10 @@ export function PowerShellTerminal() {
         }
       }, 100);
     },
-    onError: () => {
+    onError: (error) => {
       toast({
-        title: "Error",
-        description: "Failed to execute command",
+        title: "Command Failed",
+        description: error instanceof Error ? error.message : "Failed to execute command",
         variant: "destructive",
       });
     },
