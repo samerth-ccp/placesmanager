@@ -39,11 +39,19 @@ export class PowerShellService {
     }
   }
 
+  setForceRealMode(enabled: boolean): void {
+    this.forceRealMode = enabled;
+  }
+
+  isInDemoMode(): boolean {
+    return process.platform !== 'win32' && !this.forceRealMode;
+  }
+
   async executeCommand(command: string, timeoutMs: number = 30000): Promise<PowerShellResult> {
     const startTime = Date.now();
 
-    // Demo mode for non-Windows environments
-    if (process.platform !== 'win32') {
+    // Demo mode for non-Windows environments (unless forced to real mode)
+    if (this.isInDemoMode()) {
       return this.executeDemoCommand(command, startTime);
     }
 
@@ -197,8 +205,8 @@ PlaceId                               DisplayName       Type       ParentId     
   }
 
   async checkModuleInstalled(moduleName: string): Promise<ModuleInfo> {
-    // Demo mode for non-Windows environments
-    if (process.platform !== 'win32') {
+    // Demo mode for non-Windows environments (unless forced to real mode)
+    if (this.isInDemoMode()) {
       // Simulate module availability in demo mode
       const moduleVersions: Record<string, string> = {
         'ExchangeOnlineManagement': '3.0.0',
@@ -249,8 +257,8 @@ PlaceId                               DisplayName       Type       ParentId     
   }
 
   async installModule(moduleName: string): Promise<PowerShellResult> {
-    // Demo mode for non-Windows environments
-    if (process.platform !== 'win32') {
+    // Demo mode for non-Windows environments (unless forced to real mode)
+    if (this.isInDemoMode()) {
       return {
         output: `Successfully installed module ${moduleName}`,
         exitCode: 0,
@@ -262,8 +270,8 @@ PlaceId                               DisplayName       Type       ParentId     
   }
 
   async connectExchangeOnline(tenantDomain?: string): Promise<PowerShellResult> {
-    // Demo mode for non-Windows environments
-    if (process.platform !== 'win32') {
+    // Demo mode for non-Windows environments (unless forced to real mode)
+    if (this.isInDemoMode()) {
       return {
         output: `Successfully connected to Exchange Online${tenantDomain ? ` for ${tenantDomain}` : ''}`,
         exitCode: 0,
@@ -313,7 +321,7 @@ PlaceId                               DisplayName       Type       ParentId     
 
   async parsePlacesOutput(output: string): Promise<any[]> {
     // Demo mode for non-Windows environments - return structured data
-    if (process.platform !== 'win32') {
+    if (this.isInDemoMode()) {
       // Return demo data based on place type in output
       if (output.includes('Building')) {
         return [

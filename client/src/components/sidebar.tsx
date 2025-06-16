@@ -14,8 +14,9 @@ import {
   WifiOff,
   Clock
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ConnectionStatus } from "./connection-status";
+import { apiRequest } from "@/lib/queryClient";
 
 interface SidebarProps {
   currentView: string;

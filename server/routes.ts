@@ -278,6 +278,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // System mode endpoints
+  app.get('/api/system/mode', async (req, res) => {
+    res.json({
+      platform: process.platform,
+      isDemo: powerShellService.isInDemoMode(),
+      canForceReal: process.platform !== 'win32'
+    });
+  });
+
+  app.post('/api/system/mode/toggle', async (req, res) => {
+    if (process.platform === 'win32') {
+      return res.status(400).json({ message: 'Cannot toggle mode on Windows - always real mode' });
+    }
+
+    const { forceReal } = req.body;
+    powerShellService.setForceRealMode(forceReal === true);
+    
+    res.json({
+      platform: process.platform,
+      isDemo: powerShellService.isInDemoMode(),
+      canForceReal: true
+    });
+  });
+
   // Create new places
   app.post('/api/places/building', async (req, res) => {
     try {
