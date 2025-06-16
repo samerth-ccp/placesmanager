@@ -97,8 +97,25 @@ The system is built as a full-stack web application with a React frontend and Ex
 - **Schema Management**: `npm run db:push` - Applies schema changes to database
 - **Migration Strategy**: Drizzle Kit handles schema versioning and migration
 
+## Platform Detection & Deployment
+
+### Automatic Environment Switching
+The application includes intelligent platform detection that automatically switches between demo and live modes:
+
+- **Demo Mode (Non-Windows)**: Simulated PowerShell responses with realistic sample data
+- **Live Mode (Windows)**: Real PowerShell execution against Microsoft 365 environment
+
+No configuration required - the switch happens automatically based on `process.platform` detection.
+
+### Windows Deployment Requirements
+- Windows 10/11 or Windows Server
+- PowerShell 5.1 or PowerShell Core
+- Required modules: ExchangeOnlineManagement, Microsoft.Graph.Places, Microsoft.Places.PowerShell
+- Microsoft 365 admin credentials for authentication
+
 ## Changelog
-- June 16, 2025. Initial setup
+- June 16, 2025: Initial setup and demo mode implementation
+- June 16, 2025: Added platform detection, demo data, and cross-platform PowerShell service
 
 ## User Preferences
 
