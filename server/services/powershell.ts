@@ -194,6 +194,16 @@ PlaceId                               DisplayName       Type       ParentId     
       };
     }
 
+    // Handle Install-Module commands
+    if (command.toLowerCase().includes('install-module')) {
+      const moduleName = command.match(/-name\s+"?([^"\s]+)"?/i)?.[1] || 'Module';
+      return {
+        output: `Installing module '${moduleName}'...\nModule '${moduleName}' was installed successfully.`,
+        exitCode: 0,
+        duration,
+      };
+    }
+
     // Handle specific PowerShell commands in demo mode
     if (command.toLowerCase().includes('get-command')) {
       return {

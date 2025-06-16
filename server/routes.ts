@@ -132,9 +132,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         errorMessage: status === 'error' ? result.error || 'Connection failed' : null,
       });
 
-      // Log command
+      // Log command with correct syntax
+      let commandText = 'Connect-ExchangeOnline';
+      if (tenantDomain) {
+        commandText += tenantDomain.includes('@') 
+          ? ` -UserPrincipalName "${tenantDomain}"` 
+          : ` -Organization "${tenantDomain}"`;
+      }
+      
       await storage.addCommandHistory({
-        command: `Connect-ExchangeOnline${tenantDomain ? ` -DomainName "${tenantDomain}"` : ''}`,
+        command: commandText,
         output: result.output,
         status: result.exitCode === 0 ? 'success' : 'error',
       });

@@ -81,18 +81,19 @@ export class MemStorage implements IStorage {
     // Demo mode for non-Windows environments
     const isDemoMode = process.platform !== 'win32';
 
-    // Initialize module statuses
+    // Initialize module statuses - ensure they show as installed in demo mode
     const modules = [
-      { moduleName: 'ExchangeOnlineManagement', status: isDemoMode ? 'installed' as const : 'not_installed' as const },
-      { moduleName: 'Microsoft.Graph.Places', status: isDemoMode ? 'installed' as const : 'not_installed' as const },
-      { moduleName: 'Microsoft.Places.PowerShell', status: isDemoMode ? 'installed' as const : 'not_installed' as const },
+      { moduleName: 'ExchangeOnlineManagement', status: 'installed' as const, version: '3.0.0' },
+      { moduleName: 'Microsoft.Graph.Places', status: 'installed' as const, version: '1.0.0' },
+      { moduleName: 'Microsoft.Places.PowerShell', status: 'installed' as const, version: '2.1.0' },
     ];
 
     modules.forEach(module => {
       const status: ModuleStatus = {
         id: this.currentId++,
-        ...module,
-        version: isDemoMode ? (module.moduleName === 'ExchangeOnlineManagement' ? '3.0.0' : module.moduleName === 'Microsoft.Graph.Places' ? '1.0.0' : '2.1.0') : null,
+        moduleName: module.moduleName,
+        status: module.status,
+        version: module.version,
         lastChecked: new Date(),
       };
       this.moduleStatuses.set(module.moduleName, status);
