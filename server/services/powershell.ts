@@ -97,7 +97,13 @@ export class PowerShellService {
 
       ps.on('error', (error) => {
         clearTimeout(timeout);
-        reject(error);
+        const duration = Date.now() - startTime;
+        resolve({
+          output: `Error executing PowerShell command: ${error.message}`,
+          error: error.message,
+          exitCode: 1,
+          duration,
+        });
       });
     });
   }
@@ -188,9 +194,51 @@ PlaceId                               DisplayName       Type       ParentId     
       };
     }
 
-    // Default demo response
+    // Handle specific PowerShell commands in demo mode
+    if (command.toLowerCase().includes('get-command')) {
+      return {
+        output: `
+CommandType     Name                                               Version    Source
+-----------     ----                                               -------    ------
+Cmdlet          Connect-ExchangeOnline                             3.0.0      ExchangeOnlineManagement
+Cmdlet          Get-PlaceV3                                        2.1.0      Microsoft.Places.PowerShell
+Cmdlet          New-Place                                          2.1.0      Microsoft.Places.PowerShell
+`.trim(),
+        exitCode: 0,
+        duration,
+      };
+    }
+
+    if (command.toLowerCase().includes('get-help') || command.toLowerCase().includes('help')) {
+      return {
+        output: `
+Available Commands in Demo Mode:
+- Connect-ExchangeOnline -UserPrincipalName user@domain.com
+- Get-PlaceV3 -Type Building
+- Get-PlaceV3 -Type Floor
+- Get-PlaceV3 -Type Section  
+- Get-PlaceV3 -Type Desk
+- Get-Module -ListAvailable
+- New-Place -Name "Room Name" -Type Room
+
+Deploy to Windows for full PowerShell functionality.
+`.trim(),
+        exitCode: 0,
+        duration,
+      };
+    }
+
+    if (command.toLowerCase().includes('get-location') || command.toLowerCase().includes('pwd')) {
+      return {
+        output: 'C:\\Users\\Administrator\\Documents',
+        exitCode: 0,
+        duration,
+      };
+    }
+
+    // Default demo response for unrecognized commands
     return {
-      output: `[DEMO MODE] Command executed: ${command}\nThis is running in demo mode. Deploy to Windows for full PowerShell functionality.`,
+      output: `[DEMO MODE] Executed: ${command}\n\nDemo mode simulates PowerShell responses.\nDeploy to Windows for real PowerShell execution.\n\nTry: Get-Help for available commands`,
       exitCode: 0,
       duration,
     };
@@ -278,11 +326,20 @@ PlaceId                               DisplayName       Type       ParentId     
         duration: 3000 + Math.random() * 2000,
       };
     }
+    
+    // Use correct Exchange Online connection syntax
     let command = 'Connect-ExchangeOnline';
     if (tenantDomain) {
-      command += ` -DomainName "${tenantDomain}"`;
+      // Use UserPrincipalName if it looks like an email, otherwise use Organization parameter
+      if (tenantDomain.includes('@')) {
+        command += ` -UserPrincipalName "${tenantDomain}"`;
+      } else {
+        // For tenant domains like "contoso.onmicrosoft.com"
+        command += ` -Organization "${tenantDomain}"`;
+      }
     }
-    return this.executeCommand(command, 60000); // 1 minute timeout for connection
+    
+    return this.executeCommand(command, 120000); // 2 minute timeout for connection
   }
 
   async getPlaces(type?: string): Promise<PowerShellResult> {
