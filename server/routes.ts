@@ -1,0 +1,321 @@
+import type { Express } from "express";
+import { createServer, type Server } from "http";
+import { storage } from "./storage";
+import { powerShellService, type PowerShellResult } from "./services/powershell";
+import { 
+  insertModuleStatusSchema,
+  insertConnectionStatusSchema,
+  insertCommandHistorySchema,
+  insertBuildingSchema,
+  insertFloorSchema,
+  insertSectionSchema,
+  insertDeskSchema
+} from "@shared/schema";
+import { z } from "zod";
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  // Initialize PowerShell service
+  try {
+    await powerShellService.initialize();
+    await storage.upsertConnectionStatus({
+      serviceName: 'PowerShell',
+      status: 'connected',
+      errorMessage: null,
+    });
+  } catch (error) {
+    await storage.upsertConnectionStatus({
+      serviceName: 'PowerShell',
+      status: 'error',
+      errorMessage: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+
+  // Module management endpoints
+  app.get('/api/modules', async (req, res) => {
+    try {
+      const modules = await storage.getAllModuleStatus();
+      res.json(modules);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to get module status' });
+    }
+  });
+
+  app.post('/api/modules/check', async (req, res) => {
+    try {
+      const moduleNames = ['ExchangeOnlineManagement', 'Microsoft.Graph.Places', 'Microsoft.Places.PowerShell'];
+      const results = [];
+
+      for (const moduleName of moduleNames) {
+        const moduleInfo = await powerShellService.checkModuleInstalled(moduleName);
+        const status = await storage.upsertModuleStatus({
+          moduleName,
+          status: moduleInfo.status === 'installed' ? 'installed' : 
+                  moduleInfo.status === 'error' ? 'error' : 'not_installed',
+          version: moduleInfo.version || null,
+        });
+        results.push(status);
+      }
+
+      res.json(results);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to check modules' });
+    }
+  });
+
+  app.post('/api/modules/install', async (req, res) => {
+    try {
+      const { moduleName } = req.body;
+      if (!moduleName) {
+        return res.status(400).json({ message: 'Module name is required' });
+      }
+
+      // Update status to installing
+      await storage.upsertModuleStatus({
+        moduleName,
+        status: 'installing',
+        version: null,
+      });
+
+      // Install module
+      const result = await powerShellService.installModule(moduleName);
+      
+      // Update status based on result
+      const status = result.exitCode === 0 ? 'installed' : 'error';
+      const updatedModule = await storage.upsertModuleStatus({
+        moduleName,
+        status,
+        version: status === 'installed' ? 'Latest' : null,
+      });
+
+      // Log command
+      await storage.addCommandHistory({
+        command: `Install-Module -Name "${moduleName}" -Force -AllowClobber -Scope CurrentUser`,
+        output: result.output,
+        status: result.exitCode === 0 ? 'success' : 'error',
+      });
+
+      res.json({ module: updatedModule, result });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to install module' });
+    }
+  });
+
+  // Connection management endpoints
+  app.get('/api/connections', async (req, res) => {
+    try {
+      const connections = await storage.getAllConnectionStatus();
+      res.json(connections);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to get connection status' });
+    }
+  });
+
+  app.post('/api/connections/exchange', async (req, res) => {
+    try {
+      const { tenantDomain } = req.body;
+
+      // Update status to connecting
+      await storage.upsertConnectionStatus({
+        serviceName: 'Exchange Online',
+        status: 'connecting',
+        errorMessage: null,
+      });
+
+      // Attempt connection
+      const result = await powerShellService.connectExchangeOnline(tenantDomain);
+      
+      // Update status based on result
+      const status = result.exitCode === 0 ? 'connected' : 'error';
+      const updatedConnection = await storage.upsertConnectionStatus({
+        serviceName: 'Exchange Online',
+        status,
+        errorMessage: status === 'error' ? result.error || 'Connection failed' : null,
+      });
+
+      // Log command
+      await storage.addCommandHistory({
+        command: `Connect-ExchangeOnline${tenantDomain ? ` -DomainName "${tenantDomain}"` : ''}`,
+        output: result.output,
+        status: result.exitCode === 0 ? 'success' : 'error',
+      });
+
+      res.json({ connection: updatedConnection, result });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to connect to Exchange Online' });
+    }
+  });
+
+  // PowerShell command execution
+  app.post('/api/commands/execute', async (req, res) => {
+    try {
+      const { command } = req.body;
+      if (!command) {
+        return res.status(400).json({ message: 'Command is required' });
+      }
+
+      const result = await powerShellService.executeCommand(command);
+
+      // Log command
+      await storage.addCommandHistory({
+        command,
+        output: result.output,
+        status: result.exitCode === 0 ? 'success' : 'error',
+      });
+
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to execute command' });
+    }
+  });
+
+  app.get('/api/commands/history', async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const history = await storage.getCommandHistory(limit);
+      res.json(history);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to get command history' });
+    }
+  });
+
+  app.delete('/api/commands/history', async (req, res) => {
+    try {
+      await storage.clearCommandHistory();
+      res.json({ message: 'Command history cleared' });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to clear command history' });
+    }
+  });
+
+  // Places hierarchy endpoints
+  app.get('/api/places/refresh', async (req, res) => {
+    try {
+      // Get all buildings
+      const buildingsResult = await powerShellService.getPlaces('Building');
+      if (buildingsResult.exitCode !== 0) {
+        return res.status(500).json({ message: 'Failed to fetch buildings' });
+      }
+
+      const buildingsData = await powerShellService.parsePlacesOutput(buildingsResult.output);
+      
+      // Store buildings in database
+      for (const buildingData of buildingsData) {
+        const existing = await storage.getBuildingByPlaceId(buildingData.PlaceId);
+        if (!existing) {
+          await storage.createBuilding({
+            placeId: buildingData.PlaceId,
+            name: buildingData.DisplayName || buildingData.Name,
+            description: buildingData.Description || null,
+            countryOrRegion: buildingData.CountryOrRegion || null,
+            state: buildingData.State || null,
+            city: buildingData.City || null,
+            street: buildingData.Street || null,
+            postalCode: buildingData.PostalCode || null,
+            phone: buildingData.Phone || null,
+            isActive: true,
+          });
+        }
+      }
+
+      // Get all floors, sections, and desks
+      const floorsResult = await powerShellService.getPlaces('Floor');
+      const sectionsResult = await powerShellService.getPlaces('Section');
+      const desksResult = await powerShellService.getPlaces('Desk');
+
+      // Log commands
+      await storage.addCommandHistory({
+        command: 'Get-PlaceV3 -Type Building',
+        output: buildingsResult.output,
+        status: 'success',
+      });
+
+      res.json({ 
+        message: 'Places refreshed successfully',
+        buildings: buildingsData.length,
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to refresh places' });
+    }
+  });
+
+  app.get('/api/places/hierarchy', async (req, res) => {
+    try {
+      const buildings = await storage.getAllBuildings();
+      const hierarchy = [];
+
+      for (const building of buildings) {
+        const floors = await storage.getFloorsByBuildingId(building.id);
+        const buildingNode = {
+          ...building,
+          floors: [],
+        };
+
+        for (const floor of floors) {
+          const sections = await storage.getSectionsByFloorId(floor.id);
+          const floorNode = {
+            ...floor,
+            sections: [],
+          };
+
+          for (const section of sections) {
+            const desks = await storage.getDesksBySectionId(section.id);
+            const sectionNode = {
+              ...section,
+              desks,
+            };
+            floorNode.sections.push(sectionNode);
+          }
+
+          buildingNode.floors.push(floorNode);
+        }
+
+        hierarchy.push(buildingNode);
+      }
+
+      res.json(hierarchy);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to get places hierarchy' });
+    }
+  });
+
+  // Create new places
+  app.post('/api/places/building', async (req, res) => {
+    try {
+      const buildingData = insertBuildingSchema.parse(req.body);
+      
+      const result = await powerShellService.createPlace(
+        'Building',
+        buildingData.name,
+        buildingData.description || undefined,
+        undefined,
+        {
+          CountryOrRegion: buildingData.countryOrRegion || '',
+          State: buildingData.state || '',
+          City: buildingData.city || '',
+          Street: buildingData.street || '',
+          PostalCode: buildingData.postalCode || '',
+        }
+      );
+
+      if (result.exitCode === 0) {
+        const building = await storage.createBuilding(buildingData);
+        
+        // Log command
+        await storage.addCommandHistory({
+          command: `New-Place -Type Building -Name "${buildingData.name}"`,
+          output: result.output,
+          status: 'success',
+        });
+
+        res.json({ building, result });
+      } else {
+        res.status(500).json({ message: 'Failed to create building', error: result.error });
+      }
+    } catch (error) {
+      res.status(400).json({ message: 'Invalid building data' });
+    }
+  });
+
+  const httpServer = createServer(app);
+  return httpServer;
+}
