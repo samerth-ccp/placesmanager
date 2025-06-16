@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ConnectionStatus } from "./connection-status";
-import { apiRequest } from "@/lib/queryClient";
+import { SystemMode } from "@/lib/types";
 
 interface SidebarProps {
   currentView: string;
@@ -31,9 +31,33 @@ export function Sidebar({
   onRefreshConfig, 
   onExportConfig 
 }: SidebarProps) {
+  const queryClient = useQueryClient();
+
   const { data: connections } = useQuery({
     queryKey: ['/api/connections'],
     refetchInterval: 5000, // Poll every 5 seconds
+  });
+
+  const { data: systemMode } = useQuery<SystemMode>({
+    queryKey: ['/api/system/mode'],
+    refetchInterval: 10000,
+  });
+
+  const toggleModeMutation = useMutation({
+    mutationFn: async (forceReal: boolean) => {
+      const response = await fetch('/api/system/mode/toggle', {
+        method: 'POST',
+        body: JSON.stringify({ forceReal }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!response.ok) throw new Error('Failed to toggle mode');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/system/mode'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/modules'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/connections'] });
+    }
   });
 
   const navigationItems = [
@@ -76,21 +100,58 @@ export function Sidebar({
             <p className="text-sm text-neutral-600">Microsoft Places Management</p>
           </div>
         </div>
-        <div className="mt-3 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg">
-          <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
-            <span className="text-xs font-medium text-orange-700">Demo Mode</span>
+        {/* System Mode Indicator */}
+        {systemMode && (
+          <div className={`mt-3 px-3 py-2 border rounded-lg ${
+            systemMode.isDemo 
+              ? 'bg-orange-50 border-orange-200' 
+              : 'bg-green-50 border-green-200'
+          }`}>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center space-x-2">
+                <div className={`w-2 h-2 rounded-full ${
+                  systemMode.isDemo 
+                    ? 'bg-orange-500 animate-pulse' 
+                    : 'bg-green-500'
+                }`}></div>
+                <span className={`text-xs font-medium ${
+                  systemMode.isDemo 
+                    ? 'text-orange-700' 
+                    : 'text-green-700'
+                }`}>
+                  {systemMode.isDemo ? 'Demo Mode' : 'Live Mode'}
+                </span>
+              </div>
+              {systemMode.canForceReal && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 px-2 text-xs"
+                  onClick={() => toggleModeMutation.mutate(!systemMode.isDemo)}
+                  disabled={toggleModeMutation.isPending}
+                >
+                  Switch
+                </Button>
+              )}
+            </div>
+            <p className={`text-xs ${
+              systemMode.isDemo 
+                ? 'text-orange-600' 
+                : 'text-green-600'
+            }`}>
+              {systemMode.isDemo 
+                ? 'Using simulated responses for testing'
+                : 'Connected to real PowerShell environment'
+              }
+            </p>
           </div>
-          <p className="text-xs text-orange-600 mt-1">
-            Running on Linux with simulated PowerShell responses
-          </p>
-        </div>
+        )}
       </div>
 
       {/* Connection Status */}
       <div className="p-4 border-b border-neutral-200">
         <h3 className="text-sm font-medium text-neutral-800 mb-3">Connection Status</h3>
-        <ConnectionStatus connections={connections || []} />
+        <ConnectionStatus connections={Array.isArray(connections) ? connections : []} />
       </div>
 
       {/* Navigation */}

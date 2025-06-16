@@ -59,3 +59,9 @@ export interface HierarchyNode {
     }[];
   }[];
 }
+
+export interface SystemMode {
+  platform: string;
+  isDemo: boolean;
+  canForceReal: boolean;
+}
