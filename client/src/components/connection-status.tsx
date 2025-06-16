@@ -56,7 +56,7 @@ export function ConnectionStatus({ connections }: ConnectionStatusProps) {
         >
           <div className="flex items-center space-x-2">
             {getStatusIcon(connection.status)}
-            <span className="text-sm font-medium">{connection.serviceName}</span>
+            <span className="text-sm font-medium">{String(connection.serviceName || '')}</span>
           </div>
           <span className={`text-xs font-medium ${getStatusColor(connection.status)}`}>
             {getStatusText(connection.status)}

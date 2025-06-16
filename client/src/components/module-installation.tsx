@@ -12,7 +12,7 @@ export function ModuleInstallation() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: modules, isLoading } = useQuery({
+  const { data: modules, isLoading } = useQuery<ModuleStatus[]>({
     queryKey: ['/api/modules'],
     refetchInterval: 2000, // Poll every 2 seconds during installation
   });
@@ -93,12 +93,14 @@ export function ModuleInstallation() {
     }
   };
 
-  const hasUninstalledModules = modules?.some((module: ModuleStatus) => 
+  const modulesArray = Array.isArray(modules) ? modules : [];
+  
+  const hasUninstalledModules = modulesArray.some((module: ModuleStatus) => 
     module.status === 'not_installed' || module.status === 'error'
   );
 
   const installAllMissing = () => {
-    modules?.forEach((module: ModuleStatus) => {
+    modulesArray.forEach((module: ModuleStatus) => {
       if (module.status === 'not_installed' || module.status === 'error') {
         installModuleMutation.mutate(module.moduleName);
       }
@@ -133,7 +135,7 @@ export function ModuleInstallation() {
               ))}
             </div>
           ) : (
-            modules?.map((module: ModuleStatus) => (
+            modulesArray.map((module: ModuleStatus) => (
               <div
                 key={module.moduleName}
                 className="flex items-center justify-between p-3 bg-neutral-50 rounded-lg"
@@ -143,9 +145,9 @@ export function ModuleInstallation() {
                     {getStatusIcon(module.status)}
                   </div>
                   <div>
-                    <span className="text-sm font-medium">{module.moduleName}</span>
+                    <span className="text-sm font-medium">{String(module.moduleName || '')}</span>
                     {module.version && (
-                      <p className="text-xs text-muted-foreground">v{module.version}</p>
+                      <p className="text-xs text-muted-foreground">v{String(module.version)}</p>
                     )}
                   </div>
                 </div>

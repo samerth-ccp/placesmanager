@@ -16,6 +16,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { ModuleInstallation } from "@/components/module-installation";
 import { PowerShellTerminal } from "@/components/powershell-terminal";
+import { AuthDialog } from "@/components/auth-dialog";
 
 export default function SetupPage() {
   const [tenantDomain, setTenantDomain] = useState("");
