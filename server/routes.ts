@@ -152,6 +152,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/connections/places', async (req, res) => {
+    try {
+      // Attempt to connect to Microsoft Places
+      const result = await powerShellService.executeCommand('Connect-MicrosoftPlaces');
+      const status = result.exitCode === 0 ? 'connected' : 'error';
+
+      await storage.upsertConnectionStatus({
+        serviceName: 'Places Module',
+        status,
+        errorMessage: status === 'error' ? result.error || 'Connection failed' : null,
+      });
+
+      // Log command
+      await storage.addCommandHistory({
+        command: 'Connect-MicrosoftPlaces',
+        output: result.output,
+        status,
+      });
+
+      res.json({ connection: { status }, result });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to connect to Microsoft Places' });
+    }
+  });
+
   // PowerShell command execution
   app.post('/api/commands/execute', async (req, res) => {
     try {
