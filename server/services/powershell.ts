@@ -57,7 +57,8 @@ export class PowerShellService {
 
     return new Promise((resolve, reject) => {
       const isWindows = process.platform === 'win32';
-      const psCommand = isWindows ? 'powershell.exe' : 'pwsh';
+      // Always use PowerShell 7 (pwsh) if available
+      const psCommand = 'pwsh';
       const psArgs = isWindows 
         ? ['-NoProfile', '-NonInteractive', '-Command', command]
         : ['-NoProfile', '-NonInteractive', '-Command', command];
@@ -280,16 +281,50 @@ Deploy to Windows for full PowerShell functionality.
     }
 
     try {
+      // Log PowerShell version
+      const versionResult = await this.executeCommand('$PSVersionTable.PSVersion | ConvertTo-Json');
+      console.log('PowerShell version for', moduleName, ':', versionResult.output);
+      // Log PowerShell module path
+      const pathResult = await this.executeCommand('$env:PSModulePath');
+      console.log('PowerShell module path for', moduleName, ':', pathResult.output);
       const result = await this.executeCommand(
         `Get-Module -ListAvailable -Name "${moduleName}" | Select-Object Name, Version | ConvertTo-Json`
       );
 
       if (result.exitCode === 0 && result.output) {
         try {
+          console.log('PowerShell raw output for', moduleName, ':', result.output);
           const moduleData = JSON.parse(result.output);
+          // Handle array or single object
+          const moduleEntry = Array.isArray(moduleData)
+            ? moduleData.reduce((latest, entry) => {
+                if (!latest) return entry;
+                // Compare version objects if present
+                const v1 = entry.Version;
+                const v2 = latest.Version;
+                if (typeof v1 === 'object' && typeof v2 === 'object') {
+                  if (
+                    v1.Major > v2.Major ||
+                    (v1.Major === v2.Major && v1.Minor > v2.Minor) ||
+                    (v1.Major === v2.Major && v1.Minor === v2.Minor && v1.Build > v2.Build)
+                  ) {
+                    return entry;
+                  }
+                }
+                return latest;
+              }, null)
+            : moduleData;
+          let version = 'Unknown';
+          if (moduleEntry && moduleEntry.Version) {
+            if (typeof moduleEntry.Version === 'object') {
+              version = `${moduleEntry.Version.Major}.${moduleEntry.Version.Minor}.${moduleEntry.Version.Build}`;
+            } else {
+              version = moduleEntry.Version;
+            }
+          }
           return {
             name: moduleName,
-            version: moduleData.Version || 'Unknown',
+            version,
             status: 'installed',
           };
         } catch {

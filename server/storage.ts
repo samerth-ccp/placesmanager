@@ -84,8 +84,8 @@ export class MemStorage implements IStorage {
     // Initialize module statuses - ensure they show as installed in demo mode
     const modules = [
       { moduleName: 'ExchangeOnlineManagement', status: 'installed' as const, version: '3.0.0' },
-      { moduleName: 'Microsoft.Graph.Places', status: 'installed' as const, version: '1.0.0' },
-      { moduleName: 'Microsoft.Places.PowerShell', status: 'installed' as const, version: '2.1.0' },
+      { moduleName: 'MicrosoftPlaces', status: 'installed' as const, version: '1.0.0' },
+      { moduleName: 'pwshPlaces', status: 'installed' as const, version: '1.0.3' },
     ];
 
     modules.forEach(module => {

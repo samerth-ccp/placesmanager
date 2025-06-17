@@ -42,7 +42,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/modules/check', async (req, res) => {
     try {
-      const moduleNames = ['ExchangeOnlineManagement', 'Microsoft.Graph.Places', 'Microsoft.Places.PowerShell'];
+      const moduleNames = ['ExchangeOnlineManagement', 'MicrosoftPlaces', 'pwshPlaces'];
       const results = [];
 
       for (const moduleName of moduleNames) {
