@@ -52,6 +52,20 @@ export const desks = pgTable("desks", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const rooms = pgTable("rooms", {
+  id: serial("id").primaryKey(),
+  placeId: text("place_id").notNull().unique(),
+  sectionId: integer("section_id").references(() => sections.id),
+  floorId: integer("floor_id").references(() => floors.id),
+  parentPlaceId: text("parent_place_id").notNull(),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // 'Room'
+  emailAddress: text("email_address"),
+  capacity: integer("capacity"),
+  isBookable: boolean("is_bookable").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const moduleStatus = pgTable("module_status", {
   id: serial("id").primaryKey(),
   moduleName: text("module_name").notNull().unique(),
@@ -97,6 +111,11 @@ export const insertDeskSchema = createInsertSchema(desks).omit({
   createdAt: true,
 });
 
+export const insertRoomSchema = createInsertSchema(rooms).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertModuleStatusSchema = createInsertSchema(moduleStatus).omit({
   id: true,
   lastChecked: true,
@@ -117,6 +136,7 @@ export type Building = typeof buildings.$inferSelect;
 export type Floor = typeof floors.$inferSelect;
 export type Section = typeof sections.$inferSelect;
 export type Desk = typeof desks.$inferSelect;
+export type Room = typeof rooms.$inferSelect;
 export type ModuleStatus = typeof moduleStatus.$inferSelect;
 export type ConnectionStatus = typeof connectionStatus.$inferSelect;
 export type CommandHistory = typeof commandHistory.$inferSelect;
@@ -125,6 +145,7 @@ export type InsertBuilding = z.infer<typeof insertBuildingSchema>;
 export type InsertFloor = z.infer<typeof insertFloorSchema>;
 export type InsertSection = z.infer<typeof insertSectionSchema>;
 export type InsertDesk = z.infer<typeof insertDeskSchema>;
+export type InsertRoom = z.infer<typeof insertRoomSchema>;
 export type InsertModuleStatus = z.infer<typeof insertModuleStatusSchema>;
 export type InsertConnectionStatus = z.infer<typeof insertConnectionStatusSchema>;
 export type InsertCommandHistory = z.infer<typeof insertCommandHistorySchema>;

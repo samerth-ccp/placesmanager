@@ -267,10 +267,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.log(`Buildings created: ${buildingsCreated}`);
 
-      // Get all floors, sections, and desks
+      // Get all floors, sections, desks, and rooms
       const floorsResult = await powerShellService.getPlaces('Floor');
       const sectionsResult = await powerShellService.getPlaces('Section');  
       const desksResult = await powerShellService.getPlaces('Desk');
+      const roomsResult = await powerShellService.getPlaces('Room');
 
       let floorsCreated = 0;
       if (floorsResult.exitCode === 0) {
@@ -350,6 +351,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.log(`Desks created: ${desksCreated}`);
 
+      let roomsCreated = 0;
+      if (roomsResult.exitCode === 0) {
+        const roomsData = await powerShellService.parsePlacesOutput(`Room\n${roomsResult.output}`);
+        console.log(`Parsed rooms: ${roomsData.length}`);
+        for (const roomData of roomsData) {
+          const section = await storage.getSectionByPlaceId(roomData.ParentId);
+          const floor = await storage.getFloorByPlaceId(roomData.ParentId);
+          if (section || floor) {
+            const existing = await storage.getRoomByPlaceId?.(roomData.PlaceId);
+            if (!existing) {
+              await storage.createRoom?.({
+                placeId: roomData.PlaceId,
+                name: roomData.DisplayName || roomData.Name || 'Unknown Room',
+                type: roomData.Type || 'Room',
+                sectionId: section ? section.id : null,
+                floorId: floor ? floor.id : null,
+                parentPlaceId: roomData.ParentId,
+                emailAddress: roomData.EmailAddress || null,
+                capacity: roomData.Capacity || null,
+                isBookable: roomData.IsBookable || false,
+              });
+              roomsCreated++;
+            }
+          } else {
+            console.warn(`No section or floor found for room ${roomData.DisplayName} (${roomData.PlaceId}), parentId: ${roomData.ParentId}`);
+          }
+        }
+      }
+      console.log(`Rooms created: ${roomsCreated}`);
+
       // Log commands
       await storage.addCommandHistory({
         command: 'Get-PlaceV3 -Type Building, Floor, Section, Desk',
@@ -388,13 +419,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const floorNode: any = {
             ...floor,
             sections: [] as any[],
+            rooms: [] as any[],
           };
+
+          // Fetch rooms directly associated with this floor
+          const floorRooms = await storage.getRoomsByFloorId?.(floor.id) || [];
+          floorNode.rooms = floorRooms;
 
           for (const section of sections) {
             const desks = await storage.getDesksBySectionId(section.id);
+            const rooms = await storage.getRoomsBySectionId?.(section.id) || [];
             const sectionNode: any = {
               ...section,
               desks,
+              rooms,
             };
             (floorNode.sections as any[]).push(sectionNode);
           }
@@ -406,6 +444,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.json(hierarchy);
+      console.dir(hierarchy, { depth: null }); // Debug log to print the full hierarchy
     } catch (error) {
       console.error('Hierarchy fetch error:', error);
       res.status(500).json({ 

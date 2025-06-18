@@ -89,6 +89,8 @@ export function PlacesTree() {
         return <Dock className="text-green-500" size={16} />;
       case 'workspace':
         return <Users className="text-orange-500" size={16} />;
+      case 'room':
+        return <Grid3x3 className="text-gray-500" size={16} />;
       default:
         return <Grid3x3 className="text-gray-500" size={16} />;
     }
@@ -168,19 +170,48 @@ export function PlacesTree() {
     );
   };
 
+  const renderRoomNode = (room: any) => (
+    <div
+      key={room.id}
+      className="flex items-center justify-between p-2 ml-4 rounded-lg hover:bg-neutral-50"
+    >
+      <div className="flex items-center space-x-3">
+        {getTypeIcon('room')}
+        <div>
+          <div className="font-medium text-neutral-800 text-sm">{room.name}</div>
+          {room.emailAddress && (
+            <div className="text-xs text-muted-foreground">{room.emailAddress}</div>
+          )}
+          {room.capacity && (
+            <div className="text-xs text-muted-foreground">Capacity: {room.capacity}</div>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center space-x-2">
+        {room.isBookable && (
+          <Badge className="bg-green-100 text-green-800">Bookable</Badge>
+        )}
+        <Button variant="ghost" size="sm">
+          <Edit size={12} />
+        </Button>
+      </div>
+    </div>
+  );
+
   const renderFloorNode = (floor: any) => {
     const floorId = `floor-${floor.id}`;
     const isExpanded = expandedNodes.has(floorId);
     const hasSections = floor.sections && floor.sections.length > 0;
+    const hasRooms = floor.rooms && floor.rooms.length > 0;
 
     return (
       <div key={floor.id} className="tree-item rounded-lg border border-neutral-200 ml-4">
         <div
           className="flex items-center justify-between p-3 cursor-pointer hover:bg-neutral-50"
-          onClick={() => hasSections && toggleExpanded(floorId)}
+          onClick={() => (hasSections || hasRooms) && toggleExpanded(floorId)}
         >
           <div className="flex items-center space-x-3">
-            {hasSections ? (
+            {(hasSections || hasRooms) ? (
               isExpanded ? (
                 <ChevronDown className="text-neutral-400" size={16} />
               ) : (
@@ -193,7 +224,7 @@ export function PlacesTree() {
             <div>
               <div className="font-medium text-neutral-800">{floor.name}</div>
               <div className="text-sm text-muted-foreground">
-                Floor · {floor.sections?.length || 0} sections
+                Floor · {floor.sections?.length || 0} sections · {floor.rooms?.length || 0} rooms
               </div>
             </div>
           </div>
@@ -202,9 +233,10 @@ export function PlacesTree() {
           </Button>
         </div>
 
-        {hasSections && isExpanded && (
+        {(hasSections || hasRooms) && isExpanded && (
           <div className="pl-8 pb-4 space-y-2">
             {floor.sections.map(renderSectionNode)}
+            {floor.rooms && floor.rooms.map(renderRoomNode)}
           </div>
         )}
       </div>

@@ -2,7 +2,7 @@ import {
   users, buildings, floors, sections, desks, moduleStatus, connectionStatus, commandHistory,
   type User, type InsertUser, type Building, type InsertBuilding,
   type Floor, type InsertFloor, type Section, type InsertSection,
-  type Desk, type InsertDesk, type ModuleStatus, type InsertModuleStatus,
+  type Desk, type InsertDesk, type Room, type InsertRoom, type ModuleStatus, type InsertModuleStatus,
   type ConnectionStatus, type InsertConnectionStatus,
   type CommandHistory, type InsertCommandHistory
 } from "@shared/schema";
@@ -35,6 +35,12 @@ export interface IStorage {
   getDeskByPlaceId(placeId: string): Promise<Desk | undefined>;
   createDesk(desk: InsertDesk): Promise<Desk>;
 
+  // Room methods
+  getRoomsBySectionId(sectionId: number): Promise<Room[]>;
+  getRoomsByFloorId(floorId: number): Promise<Room[]>;
+  getRoomByPlaceId(placeId: string): Promise<Room | undefined>;
+  createRoom(room: InsertRoom): Promise<Room>;
+
   // Module status methods
   getAllModuleStatus(): Promise<ModuleStatus[]>;
   getModuleStatus(moduleName: string): Promise<ModuleStatus | undefined>;
@@ -57,6 +63,7 @@ export class MemStorage implements IStorage {
   private floors: Map<number, Floor>;
   private sections: Map<number, Section>;
   private desks: Map<number, Desk>;
+  private rooms: Map<number, Room>;
   private moduleStatuses: Map<string, ModuleStatus>;
   private connectionStatuses: Map<string, ConnectionStatus>;
   private commandHistories: CommandHistory[];
@@ -68,6 +75,7 @@ export class MemStorage implements IStorage {
     this.floors = new Map();
     this.sections = new Map();
     this.desks = new Map();
+    this.rooms = new Map();
     this.moduleStatuses = new Map();
     this.connectionStatuses = new Map();
     this.commandHistories = [];
@@ -93,7 +101,7 @@ export class MemStorage implements IStorage {
         id: this.currentId++,
         moduleName: module.moduleName,
         status: module.status,
-        version: module.version,
+        version: module.version ?? null,
         lastChecked: new Date(),
       };
       this.moduleStatuses.set(module.moduleName, status);
@@ -109,7 +117,8 @@ export class MemStorage implements IStorage {
     connections.forEach(connection => {
       const status: ConnectionStatus = {
         id: this.currentId++,
-        ...connection,
+        serviceName: connection.serviceName,
+        status: connection.status,
         lastConnected: isDemoMode ? new Date() : null,
         errorMessage: null,
       };
@@ -272,8 +281,17 @@ export class MemStorage implements IStorage {
   async createBuilding(insertBuilding: InsertBuilding): Promise<Building> {
     const id = this.currentId++;
     const building: Building = {
-      ...insertBuilding,
       id,
+      placeId: insertBuilding.placeId,
+      name: insertBuilding.name,
+      description: insertBuilding.description ?? null,
+      countryOrRegion: insertBuilding.countryOrRegion ?? null,
+      state: insertBuilding.state ?? null,
+      city: insertBuilding.city ?? null,
+      street: insertBuilding.street ?? null,
+      postalCode: insertBuilding.postalCode ?? null,
+      phone: insertBuilding.phone ?? null,
+      isActive: insertBuilding.isActive ?? null,
       createdAt: new Date(),
     };
     this.buildings.set(id, building);
@@ -301,8 +319,13 @@ export class MemStorage implements IStorage {
   async createFloor(insertFloor: InsertFloor): Promise<Floor> {
     const id = this.currentId++;
     const floor: Floor = {
-      ...insertFloor,
       id,
+      placeId: insertFloor.placeId,
+      buildingId: insertFloor.buildingId ?? null,
+      parentPlaceId: insertFloor.parentPlaceId,
+      name: insertFloor.name,
+      description: insertFloor.description ?? null,
+      displayName: insertFloor.displayName ?? null,
       createdAt: new Date(),
     };
     this.floors.set(id, floor);
@@ -321,8 +344,13 @@ export class MemStorage implements IStorage {
   async createSection(insertSection: InsertSection): Promise<Section> {
     const id = this.currentId++;
     const section: Section = {
-      ...insertSection,
       id,
+      placeId: insertSection.placeId,
+      floorId: insertSection.floorId ?? null,
+      parentPlaceId: insertSection.parentPlaceId,
+      name: insertSection.name,
+      description: insertSection.description ?? null,
+      displayName: insertSection.displayName ?? null,
       createdAt: new Date(),
     };
     this.sections.set(id, section);
@@ -341,12 +369,51 @@ export class MemStorage implements IStorage {
   async createDesk(insertDesk: InsertDesk): Promise<Desk> {
     const id = this.currentId++;
     const desk: Desk = {
-      ...insertDesk,
       id,
+      placeId: insertDesk.placeId,
+      sectionId: insertDesk.sectionId ?? null,
+      parentPlaceId: insertDesk.parentPlaceId,
+      name: insertDesk.name,
+      type: insertDesk.type,
+      emailAddress: insertDesk.emailAddress ?? null,
+      capacity: insertDesk.capacity ?? null,
+      isBookable: insertDesk.isBookable ?? null,
       createdAt: new Date(),
     };
     this.desks.set(id, desk);
     return desk;
+  }
+
+  // Room methods
+  async getRoomsBySectionId(sectionId: number): Promise<Room[]> {
+    return Array.from(this.rooms.values()).filter(room => room.sectionId === sectionId);
+  }
+
+  async getRoomsByFloorId(floorId: number): Promise<Room[]> {
+    return Array.from(this.rooms.values()).filter(room => room.floorId === floorId);
+  }
+
+  async getRoomByPlaceId(placeId: string): Promise<Room | undefined> {
+    return Array.from(this.rooms.values()).find(room => room.placeId === placeId);
+  }
+
+  async createRoom(insertRoom: InsertRoom): Promise<Room> {
+    const id = this.currentId++;
+    const room: Room = {
+      id,
+      placeId: insertRoom.placeId,
+      sectionId: insertRoom.sectionId ?? null,
+      floorId: insertRoom.floorId ?? null,
+      parentPlaceId: insertRoom.parentPlaceId,
+      name: insertRoom.name,
+      type: insertRoom.type,
+      emailAddress: insertRoom.emailAddress ?? null,
+      capacity: insertRoom.capacity ?? null,
+      isBookable: insertRoom.isBookable ?? null,
+      createdAt: new Date(),
+    };
+    this.rooms.set(id, room);
+    return room;
   }
 
   // Module status methods
@@ -384,6 +451,7 @@ export class MemStorage implements IStorage {
       id: existing?.id || this.currentId++,
       ...insertConnectionStatus,
       lastConnected: insertConnectionStatus.status === 'connected' ? new Date() : existing?.lastConnected || null,
+      errorMessage: insertConnectionStatus.errorMessage ?? null,
     };
     this.connectionStatuses.set(insertConnectionStatus.serviceName, connectionStatus);
     return connectionStatus;
@@ -392,18 +460,25 @@ export class MemStorage implements IStorage {
   // Command history methods
   async getCommandHistory(limit: number = 50): Promise<CommandHistory[]> {
     return this.commandHistories
-      .sort((a, b) => b.executedAt.getTime() - a.executedAt.getTime())
+      .sort((a, b) => {
+        const aTime = a.executedAt instanceof Date ? a.executedAt.getTime() : 0;
+        const bTime = b.executedAt instanceof Date ? b.executedAt.getTime() : 0;
+        return bTime - aTime;
+      })
       .slice(0, limit);
   }
 
   async addCommandHistory(insertCommandHistory: InsertCommandHistory): Promise<CommandHistory> {
-    const commandHistory: CommandHistory = {
-      id: this.currentId++,
-      ...insertCommandHistory,
+    const id = this.currentId++;
+    const history: CommandHistory = {
+      id,
+      command: insertCommandHistory.command,
+      output: insertCommandHistory.output ?? null,
+      status: insertCommandHistory.status,
       executedAt: new Date(),
     };
-    this.commandHistories.push(commandHistory);
-    return commandHistory;
+    this.commandHistories.push(history);
+    return history;
   }
 
   async clearCommandHistory(): Promise<void> {
