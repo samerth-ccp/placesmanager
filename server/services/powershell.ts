@@ -460,21 +460,84 @@ Deploy to Windows for full PowerShell functionality.
     // Create a map of all places by PlaceId for quick lookup
     const placeMap = new Map<string, any>();
     places.forEach(place => {
-      placeMap.set(place.PlaceId, { ...place, children: [] });
+      // Ensure we have all required fields
+      const enrichedPlace = {
+        ...place,
+        Type: place.Type || 'Building',
+        DisplayName: place.DisplayName || place.Name || 'Unknown',
+        ParentId: place.ParentId || null,
+        children: []
+      };
+      placeMap.set(place.PlaceId, enrichedPlace);
     });
 
-    // Build the hierarchy
+    // Define valid hierarchy levels and their allowed children
+    type PlaceType = 'Building' | 'Floor' | 'Section' | 'Desk' | 'Room';
+    const hierarchyLevels: Record<PlaceType, PlaceType[]> = {
+      'Building': ['Floor'],
+      'Floor': ['Section'],
+      'Section': ['Desk', 'Room'],
+      'Desk': [],
+      'Room': []
+    };
+
+    // First pass: Validate all parent-child relationships
+    const validRelationships = new Map<string, boolean>();
+    places.forEach(place => {
+      const placeType = place.Type as PlaceType;
+      const parentId = place.ParentId;
+      
+      if (parentId && placeMap.has(parentId)) {
+        const parent = placeMap.get(parentId);
+        const parentType = parent.Type as PlaceType;
+        
+        // Check if this is a valid parent-child relationship
+        validRelationships.set(place.PlaceId, hierarchyLevels[parentType]?.includes(placeType) || false);
+      } else {
+        // Root level places must be Buildings
+        validRelationships.set(place.PlaceId, placeType === 'Building');
+      }
+    });
+
+    // Second pass: Build the hierarchy
     const rootPlaces: any[] = [];
     places.forEach(place => {
       const placeWithChildren = placeMap.get(place.PlaceId);
+      const isValidRelationship = validRelationships.get(place.PlaceId);
       
-      if (place.ParentId && placeMap.has(place.ParentId)) {
-        // This is a child place, add it to its parent's children
+      if (place.ParentId && placeMap.has(place.ParentId) && isValidRelationship) {
+        // Valid child place, add to parent
         const parent = placeMap.get(place.ParentId);
         parent.children.push(placeWithChildren);
-      } else {
-        // This is a root place (Building or top-level place)
+      } else if (!place.ParentId && place.Type === 'Building') {
+        // Valid root Building
         rootPlaces.push(placeWithChildren);
+      } else {
+        // Invalid relationship or non-Building root
+        console.warn(`Invalid place relationship: ${place.DisplayName} (${place.Type})`);
+        if (place.Type === 'Building') {
+          rootPlaces.push(placeWithChildren);
+        } else {
+          // Try to find a valid parent based on type
+          const validParentType = Object.entries(hierarchyLevels).find(([_, children]) => 
+            children.includes(place.Type as PlaceType)
+          )?.[0];
+          
+          if (validParentType) {
+            // Find a parent of the correct type
+            const potentialParent = Array.from(placeMap.values()).find(p => 
+              p.Type === validParentType && !p.ParentId
+            );
+            
+            if (potentialParent) {
+              potentialParent.children.push(placeWithChildren);
+            } else {
+              rootPlaces.push(placeWithChildren);
+            }
+          } else {
+            rootPlaces.push(placeWithChildren);
+          }
+        }
       }
     });
 
@@ -611,13 +674,18 @@ Deploy to Windows for full PowerShell functionality.
           const value = valueParts.join(':').trim();
           const cleanKey = key.trim();
 
-          if (cleanKey === 'DisplayName' && Object.keys(currentPlace).length > 0) {
-            // New place starting
+          // Start a new object on PlaceId (not DisplayName)
+          if (cleanKey === 'PlaceId' && Object.keys(currentPlace).length > 0) {
             places.push(currentPlace);
             currentPlace = {};
           }
 
-          currentPlace[cleanKey] = value;
+          // Normalize ParentId: set to null if empty or whitespace
+          if (cleanKey === 'ParentId') {
+            currentPlace[cleanKey] = value.trim() === '' ? null : value.trim();
+          } else {
+            currentPlace[cleanKey] = value;
+          }
         }
       }
 

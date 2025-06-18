@@ -237,7 +237,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get all buildings
       const buildingsResult = await powerShellService.getPlaces('Building');
-      console.log('buildingsResult:', buildingsResult);
       if (buildingsResult.exitCode !== 0) {
         return res.status(500).json({ 
           message: 'Failed to fetch buildings',
@@ -245,10 +244,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           requiresConnection: !powerShellService.isInDemoMode()
         });
       }
-
       const buildingsData = await powerShellService.parsePlacesOutput(`Building\n${buildingsResult.output}`);
-      
-      // Store buildings in database
+      console.log(`Parsed buildings: ${buildingsData.length}`);
+      let buildingsCreated = 0;
       for (const buildingData of buildingsData) {
         const existing = await storage.getBuildingByPlaceId(buildingData.PlaceId);
         if (!existing) {
@@ -264,16 +262,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             phone: buildingData.Phone || null,
             isActive: true,
           });
+          buildingsCreated++;
         }
       }
+      console.log(`Buildings created: ${buildingsCreated}`);
 
       // Get all floors, sections, and desks
       const floorsResult = await powerShellService.getPlaces('Floor');
       const sectionsResult = await powerShellService.getPlaces('Section');  
       const desksResult = await powerShellService.getPlaces('Desk');
 
+      let floorsCreated = 0;
       if (floorsResult.exitCode === 0) {
         const floorsData = await powerShellService.parsePlacesOutput(`Floor\n${floorsResult.output}`);
+        console.log(`Parsed floors: ${floorsData.length}`);
         for (const floorData of floorsData) {
           const building = await storage.getBuildingByPlaceId(floorData.ParentId);
           if (building) {
@@ -286,13 +288,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 buildingId: building.id,
                 parentPlaceId: floorData.ParentId,
               });
+              floorsCreated++;
             }
+          } else {
+            console.warn(`No building found for floor ${floorData.DisplayName} (${floorData.PlaceId}), parentId: ${floorData.ParentId}`);
           }
         }
       }
+      console.log(`Floors created: ${floorsCreated}`);
 
+      let sectionsCreated = 0;
       if (sectionsResult.exitCode === 0) {
         const sectionsData = await powerShellService.parsePlacesOutput(`Section\n${sectionsResult.output}`);
+        console.log(`Parsed sections: ${sectionsData.length}`);
         for (const sectionData of sectionsData) {
           const floor = await storage.getFloorByPlaceId(sectionData.ParentId);
           if (floor) {
@@ -305,13 +313,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 floorId: floor.id,
                 parentPlaceId: sectionData.ParentId,
               });
+              sectionsCreated++;
             }
+          } else {
+            console.warn(`No floor found for section ${sectionData.DisplayName} (${sectionData.PlaceId}), parentId: ${sectionData.ParentId}`);
           }
         }
       }
+      console.log(`Sections created: ${sectionsCreated}`);
 
+      let desksCreated = 0;
       if (desksResult.exitCode === 0) {
         const desksData = await powerShellService.parsePlacesOutput(`Desk\n${desksResult.output}`);
+        console.log(`Parsed desks: ${desksData.length}`);
         for (const deskData of desksData) {
           const section = await storage.getSectionByPlaceId(deskData.ParentId);
           if (section) {
@@ -327,10 +341,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 capacity: deskData.Capacity || null,
                 isBookable: deskData.IsBookable || false,
               });
+              desksCreated++;
             }
+          } else {
+            console.warn(`No section found for desk ${deskData.DisplayName} (${deskData.PlaceId}), parentId: ${deskData.ParentId}`);
           }
         }
       }
+      console.log(`Desks created: ${desksCreated}`);
 
       // Log commands
       await storage.addCommandHistory({
