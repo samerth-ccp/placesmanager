@@ -14,11 +14,24 @@ export interface ModuleInfo {
   status: 'installed' | 'not_installed' | 'error';
 }
 
+interface QueuedCommand {
+  command: string;
+  resolve: (result: PowerShellResult) => void;
+  reject: (err: any) => void;
+  startTime: number;
+  timeout: NodeJS.Timeout;
+}
+
 export class PowerShellService {
   private static instance: PowerShellService;
   private psProcess: ChildProcess | null = null;
   private isInitialized = false;
   private forceRealMode = false;
+  private commandQueue: QueuedCommand[] = [];
+  private isProcessing = false;
+  private buffer = '';
+  private errorBuffer = '';
+  private readonly END_MARKER = '__END_OF_COMMAND__';
 
   static getInstance(): PowerShellService {
     if (!PowerShellService.instance) {
@@ -29,14 +42,65 @@ export class PowerShellService {
 
   async initialize(): Promise<void> {
     if (this.isInitialized) return;
+    await this.startPersistentProcess();
+    this.isInitialized = true;
+  }
 
-    try {
-      // Test PowerShell availability
-      await this.executeCommand('Get-Host');
-      this.isInitialized = true;
-    } catch (error) {
-      throw new Error(`Failed to initialize PowerShell: ${error}`);
+  private startPersistentProcess() {
+    return new Promise<void>((resolve, reject) => {
+      if (this.psProcess) {
+        this.psProcess.kill();
+        this.psProcess = null;
+      }
+      this.psProcess = spawn('pwsh', ['-NoProfile', '-NonInteractive', '-Command', '-'], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        shell: false,
+      });
+      this.buffer = '';
+      this.errorBuffer = '';
+      this.psProcess.stdout?.on('data', (data) => this.handleStdout(data));
+      this.psProcess.stderr?.on('data', (data) => this.handleStderr(data));
+      this.psProcess.on('close', () => {
+        this.isInitialized = false;
+        // Try to restart process if it dies
+        setTimeout(() => this.startPersistentProcess(), 1000);
+      });
+      // Wait a moment to ensure process is ready
+      setTimeout(() => resolve(), 500);
+    });
+  }
+
+  private handleStdout(data: Buffer) {
+    this.buffer += data.toString();
+    let idx;
+    while ((idx = this.buffer.indexOf(this.END_MARKER)) !== -1) {
+      const chunk = this.buffer.slice(0, idx);
+      this.buffer = this.buffer.slice(idx + this.END_MARKER.length);
+      this.finishCommand(chunk, this.errorBuffer);
+      this.errorBuffer = '';
     }
+  }
+
+  private handleStderr(data: Buffer) {
+    this.errorBuffer += data.toString();
+  }
+
+  private finishCommand(output: string, error: string) {
+    const cmd = this.commandQueue.shift();
+    if (!cmd) return;
+    clearTimeout(cmd.timeout);
+    const duration = Date.now() - cmd.startTime;
+    // Try to parse exit code from output (not perfect, but works for most cases)
+    let exitCode = 0;
+    if (error && error.trim()) exitCode = 1;
+    cmd.resolve({
+      output: output.trim(),
+      error: error.trim() || undefined,
+      exitCode,
+      duration,
+    });
+    this.isProcessing = false;
+    this.processQueue();
   }
 
   setForceRealMode(enabled: boolean): void {
@@ -48,65 +112,34 @@ export class PowerShellService {
   }
 
   async executeCommand(command: string, timeoutMs: number = 30000): Promise<PowerShellResult> {
-    const startTime = Date.now();
-
-    // Demo mode for non-Windows environments (unless forced to real mode)
     if (this.isInDemoMode()) {
-      return this.executeDemoCommand(command, startTime);
+      return this.executeDemoCommand(command, Date.now());
     }
-
+    await this.initialize();
     return new Promise((resolve, reject) => {
-      const isWindows = process.platform === 'win32';
-      // Always use PowerShell 7 (pwsh) if available
-      const psCommand = 'pwsh';
-      const psArgs = isWindows 
-        ? ['-NoProfile', '-NonInteractive', '-Command', command]
-        : ['-NoProfile', '-NonInteractive', '-Command', command];
-
-      const ps = spawn(psCommand, psArgs, {
-        stdio: ['pipe', 'pipe', 'pipe'],
-        shell: false,
-      });
-
-      let output = '';
-      let errorOutput = '';
-
-      ps.stdout?.on('data', (data) => {
-        output += data.toString();
-      });
-
-      ps.stderr?.on('data', (data) => {
-        errorOutput += data.toString();
-      });
-
-      const timeout = setTimeout(() => {
-        ps.kill();
-        reject(new Error(`Command timed out after ${timeoutMs}ms`));
-      }, timeoutMs);
-
-      ps.on('close', (code) => {
-        clearTimeout(timeout);
-        const duration = Date.now() - startTime;
-        
-        resolve({
-          output: output.trim(),
-          error: errorOutput.trim() || undefined,
-          exitCode: code || 0,
-          duration,
-        });
-      });
-
-      ps.on('error', (error) => {
-        clearTimeout(timeout);
-        const duration = Date.now() - startTime;
-        resolve({
-          output: `Error executing PowerShell command: ${error.message}`,
-          error: error.message,
-          exitCode: 1,
-          duration,
-        });
-      });
+      const startTime = Date.now();
+      const queued: QueuedCommand = {
+        command,
+        resolve,
+        reject,
+        startTime,
+        timeout: setTimeout(() => {
+          reject(new Error('PowerShell command timed out'));
+          this.isProcessing = false;
+          this.processQueue();
+        }, timeoutMs),
+      };
+      this.commandQueue.push(queued);
+      this.processQueue();
     });
+  }
+
+  private processQueue() {
+    if (this.isProcessing || !this.psProcess || this.commandQueue.length === 0) return;
+    this.isProcessing = true;
+    const cmd = this.commandQueue[0];
+    // Write command and marker
+    this.psProcess.stdin?.write(`${cmd.command}\nWrite-Output '${this.END_MARKER}'\n`);
   }
 
   private async executeDemoCommand(command: string, startTime: number): Promise<PowerShellResult> {
@@ -392,7 +425,9 @@ Deploy to Windows for full PowerShell functionality.
     if (type) {
       command += ` -Type ${type}`;
     }
-    return this.executeCommand(command);
+    const result = await this.executeCommand(command);
+    console.log('Get-PlaceV3 result:', result);
+    return result;
   }
 
   async createPlace(
@@ -421,12 +456,51 @@ Deploy to Windows for full PowerShell functionality.
     return this.executeCommand(command);
   }
 
+  private buildPlacesHierarchy(places: any[]): any[] {
+    // Create a map of all places by PlaceId for quick lookup
+    const placeMap = new Map<string, any>();
+    places.forEach(place => {
+      placeMap.set(place.PlaceId, { ...place, children: [] });
+    });
+
+    // Build the hierarchy
+    const rootPlaces: any[] = [];
+    places.forEach(place => {
+      const placeWithChildren = placeMap.get(place.PlaceId);
+      
+      if (place.ParentId && placeMap.has(place.ParentId)) {
+        // This is a child place, add it to its parent's children
+        const parent = placeMap.get(place.ParentId);
+        parent.children.push(placeWithChildren);
+      } else {
+        // This is a root place (Building or top-level place)
+        rootPlaces.push(placeWithChildren);
+      }
+    });
+
+    // Sort children by DisplayName
+    const sortChildren = (place: any) => {
+      if (place.children && place.children.length > 0) {
+        place.children.sort((a: any, b: any) => 
+          (a.DisplayName || '').localeCompare(b.DisplayName || '')
+        );
+        place.children.forEach(sortChildren);
+      }
+    };
+
+    // Sort all levels of the hierarchy
+    rootPlaces.sort((a, b) => (a.DisplayName || '').localeCompare(b.DisplayName || ''));
+    rootPlaces.forEach(sortChildren);
+
+    return rootPlaces;
+  }
+
   async parsePlacesOutput(output: string): Promise<any[]> {
     // Demo mode for non-Windows environments - return structured data
     if (this.isInDemoMode()) {
       // Return demo data based on place type in output
       if (output.includes('Building')) {
-        return [
+        const demoPlaces = [
           {
             PlaceId: '2b0b9b4b-525d-4718-a1b6-75c8ab3c8f56',
             DisplayName: 'ThoughtsWin',
@@ -448,10 +522,11 @@ Deploy to Windows for full PowerShell functionality.
             PostalCode: 'V6Z 0G5'
           }
         ];
+        return this.buildPlacesHierarchy(demoPlaces);
       }
       
       if (output.includes('Floor')) {
-        return [
+        const demoPlaces = [
           {
             PlaceId: '31d81535-c9f1-410b-a723-bf0a5c7f7485',
             DisplayName: 'Main',
@@ -465,10 +540,11 @@ Deploy to Windows for full PowerShell functionality.
             ParentId: '3c1c8c5c-636e-5829-b2c7-86d9bc4d9g67'
           }
         ];
+        return this.buildPlacesHierarchy(demoPlaces);
       }
 
       if (output.includes('Section')) {
-        return [
+        const demoPlaces = [
           {
             PlaceId: '53f03757-e1f3-632d-d945-a8fbde6f9ha7',
             DisplayName: 'Foyer',
@@ -482,10 +558,11 @@ Deploy to Windows for full PowerShell functionality.
             ParentId: '31d81535-c9f1-410b-a723-bf0a5c7f7485'
           }
         ];
+        return this.buildPlacesHierarchy(demoPlaces);
       }
 
       if (output.includes('Desk')) {
-        return [
+        const demoPlaces = [
           {
             PlaceId: '75h25979-g3h5-854f-fb67-cahdgf8h1jc9',
             DisplayName: 'Desk-001',
@@ -505,18 +582,24 @@ Deploy to Windows for full PowerShell functionality.
             IsBookable: true
           }
         ];
+        return this.buildPlacesHierarchy(demoPlaces);
       }
 
       return [];
     }
 
+    // Strip ANSI color codes
+    const ansiRegex = /\x1B\[[0-9;]*m/g;
+    const cleanOutput = output.replace(ansiRegex, '');
+
     try {
       // Try to parse as JSON first
-      return JSON.parse(output);
+      const places = JSON.parse(cleanOutput);
+      return this.buildPlacesHierarchy(places);
     } catch {
       // If not JSON, try to parse PowerShell object format
       const places: any[] = [];
-      const lines = output.split('\n');
+      const lines = cleanOutput.split('\n');
       let currentPlace: any = {};
 
       for (const line of lines) {
@@ -542,7 +625,7 @@ Deploy to Windows for full PowerShell functionality.
         places.push(currentPlace);
       }
 
-      return places;
+      return this.buildPlacesHierarchy(places);
     }
   }
 

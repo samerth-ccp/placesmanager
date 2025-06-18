@@ -225,6 +225,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if Exchange Online is connected (only in live mode)
       if (!powerShellService.isInDemoMode()) {
         const exchangeConnection = await storage.getConnectionStatus('Exchange Online');
+        console.log('Exchange Online connection status:', exchangeConnection);
         if (!exchangeConnection || exchangeConnection.status !== 'connected') {
           return res.status(400).json({ 
             message: 'Exchange Online connection required',
@@ -236,6 +237,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get all buildings
       const buildingsResult = await powerShellService.getPlaces('Building');
+      console.log('buildingsResult:', buildingsResult);
       if (buildingsResult.exitCode !== 0) {
         return res.status(500).json({ 
           message: 'Failed to fetch buildings',
