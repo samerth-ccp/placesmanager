@@ -743,6 +743,134 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put('/api/places/floor/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const floor = await storage.getFloorById(id);
+      
+      if (!floor) {
+        return res.status(404).json({ message: 'Floor not found' });
+      }
+
+      const floorData = insertFloorSchema.partial().parse(req.body);
+      
+      const result = await powerShellService.updatePlace(floor.placeId, floorData);
+      
+      if (result.exitCode === 0) {
+        const updated = await storage.updateFloor ? await storage.updateFloor(id, floorData) : null;
+        
+        await storage.addCommandHistory({
+          command: `Set-Place -Identity "${floor.placeId}" -DisplayName "${floorData.name || floor.name}"`,
+          output: result.output,
+          status: 'success',
+        });
+
+        res.json({ floor: updated, result });
+      } else {
+        res.status(500).json({ message: 'Failed to update floor', error: result.error });
+      }
+    } catch (error) {
+      console.error('Floor update error:', error);
+      res.status(400).json({ message: 'Invalid floor data', error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
+  app.put('/api/places/section/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const section = await storage.getSectionById(id);
+      
+      if (!section) {
+        return res.status(404).json({ message: 'Section not found' });
+      }
+
+      const sectionData = insertSectionSchema.partial().parse(req.body);
+      
+      const result = await powerShellService.updatePlace(section.placeId, sectionData);
+      
+      if (result.exitCode === 0) {
+        const updated = await storage.updateSection ? await storage.updateSection(id, sectionData) : null;
+        
+        await storage.addCommandHistory({
+          command: `Set-Place -Identity "${section.placeId}" -DisplayName "${sectionData.name || section.name}"`,
+          output: result.output,
+          status: 'success',
+        });
+
+        res.json({ section: updated, result });
+      } else {
+        res.status(500).json({ message: 'Failed to update section', error: result.error });
+      }
+    } catch (error) {
+      console.error('Section update error:', error);
+      res.status(400).json({ message: 'Invalid section data', error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
+  app.put('/api/places/desk/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const desk = await storage.getDeskById(id);
+      
+      if (!desk) {
+        return res.status(404).json({ message: 'Desk not found' });
+      }
+
+      const deskData = insertDeskSchema.partial().parse(req.body);
+      
+      const result = await powerShellService.updatePlace(desk.placeId, deskData);
+      
+      if (result.exitCode === 0) {
+        const updated = await storage.updateDesk ? await storage.updateDesk(id, deskData) : null;
+        
+        await storage.addCommandHistory({
+          command: `Set-Place -Identity "${desk.placeId}" -DisplayName "${deskData.name || desk.name}"`,
+          output: result.output,
+          status: 'success',
+        });
+
+        res.json({ desk: updated, result });
+      } else {
+        res.status(500).json({ message: 'Failed to update desk', error: result.error });
+      }
+    } catch (error) {
+      console.error('Desk update error:', error);
+      res.status(400).json({ message: 'Invalid desk data', error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
+  app.put('/api/places/room/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const room = await storage.getRoomById(id);
+      
+      if (!room) {
+        return res.status(404).json({ message: 'Room not found' });
+      }
+
+      const roomData = insertRoomSchema.partial().parse(req.body);
+      
+      const result = await powerShellService.updatePlace(room.placeId, roomData);
+      
+      if (result.exitCode === 0) {
+        const updated = await storage.updateRoom ? await storage.updateRoom(id, roomData) : null;
+        
+        await storage.addCommandHistory({
+          command: `Set-Place -Identity "${room.placeId}" -DisplayName "${roomData.name || room.name}"`,
+          output: result.output,
+          status: 'success',
+        });
+
+        res.json({ room: updated, result });
+      } else {
+        res.status(500).json({ message: 'Failed to update room', error: result.error });
+      }
+    } catch (error) {
+      console.error('Room update error:', error);
+      res.status(400).json({ message: 'Invalid room data', error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
   // Delete places endpoints  
   app.delete('/api/places/building/:id', async (req, res) => {
     try {

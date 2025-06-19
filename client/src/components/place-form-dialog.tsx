@@ -99,9 +99,16 @@ export function PlaceFormDialog({
 
   const form = useForm({
     resolver: zodResolver(getSchema()),
-    defaultValues: editData || getDefaultValues(),
+    defaultValues: getDefaultValues(),
     mode: "onChange"
   });
+
+  // Update form values when editData changes
+  React.useEffect(() => {
+    if (editData) {
+      form.reset(getDefaultValues());
+    }
+  }, [editData]);
 
   function getDefaultValues() {
     switch (type) {
