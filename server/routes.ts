@@ -481,7 +481,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create new places
   app.post('/api/places/building', async (req, res) => {
     try {
-      const buildingData = insertBuildingSchema.parse(req.body);
+      console.log('Received building data:', req.body);
+      
+      // Generate a unique placeId for the building
+      const placeId = `building-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      const buildingData = insertBuildingSchema.parse({
+        ...req.body,
+        placeId
+      });
+      console.log('Parsed building data:', buildingData);
       
       const result = await powerShellService.createPlace(
         'Building',
@@ -512,18 +521,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(500).json({ message: 'Failed to create building', error: result.error });
       }
     } catch (error) {
-      res.status(400).json({ message: 'Invalid building data' });
+      console.error('Building validation error:', error);
+      res.status(400).json({ 
+        message: 'Invalid building data',
+        error: error instanceof Error ? error.message : 'Unknown validation error',
+        received: req.body
+      });
     }
   });
 
   app.post('/api/places/floor', async (req, res) => {
     try {
-      const floorData = insertFloorSchema.parse(req.body);
-      const building = await storage.getBuildingById(floorData.buildingId);
+      const building = await storage.getBuildingById(req.body.buildingId);
       
       if (!building) {
         return res.status(400).json({ message: 'Building not found' });
       }
+
+      const placeId = `floor-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const floorData = insertFloorSchema.parse({
+        ...req.body,
+        placeId,
+        parentPlaceId: building.placeId,
+      });
 
       const result = await powerShellService.createPlace(
         'Floor',
@@ -533,10 +553,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       if (result.exitCode === 0) {
-        const floor = await storage.createFloor({
-          ...floorData,
-          parentPlaceId: building.placeId,
-        });
+        const floor = await storage.createFloor(floorData);
         
         await storage.addCommandHistory({
           command: `New-Place -Type Floor -Name "${floorData.name}" -ParentId "${building.placeId}"`,
@@ -549,18 +566,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(500).json({ message: 'Failed to create floor', error: result.error });
       }
     } catch (error) {
-      res.status(400).json({ message: 'Invalid floor data' });
+      console.error('Floor validation error:', error);
+      res.status(400).json({ message: 'Invalid floor data', error: error instanceof Error ? error.message : 'Unknown validation error' });
     }
   });
 
   app.post('/api/places/section', async (req, res) => {
     try {
-      const sectionData = insertSectionSchema.parse(req.body);
-      const floor = await storage.getFloorById ? await storage.getFloorById(sectionData.floorId) : null;
+      const floor = await storage.getFloorById(req.body.floorId);
       
       if (!floor) {
         return res.status(400).json({ message: 'Floor not found' });
       }
+
+      const placeId = `section-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const sectionData = insertSectionSchema.parse({
+        ...req.body,
+        placeId,
+        parentPlaceId: floor.placeId,
+      });
 
       const result = await powerShellService.createPlace(
         'Section',
@@ -570,10 +594,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       if (result.exitCode === 0) {
-        const section = await storage.createSection({
-          ...sectionData,
-          parentPlaceId: floor.placeId,
-        });
+        const section = await storage.createSection(sectionData);
         
         await storage.addCommandHistory({
           command: `New-Place -Type Section -Name "${sectionData.name}" -ParentId "${floor.placeId}"`,
@@ -586,18 +607,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(500).json({ message: 'Failed to create section', error: result.error });
       }
     } catch (error) {
-      res.status(400).json({ message: 'Invalid section data' });
+      console.error('Section validation error:', error);
+      res.status(400).json({ message: 'Invalid section data', error: error instanceof Error ? error.message : 'Unknown validation error' });
     }
   });
 
   app.post('/api/places/desk', async (req, res) => {
     try {
-      const deskData = insertDeskSchema.parse(req.body);
-      const section = await storage.getSectionById ? await storage.getSectionById(deskData.sectionId) : null;
+      const section = await storage.getSectionById(req.body.sectionId);
       
       if (!section) {
         return res.status(400).json({ message: 'Section not found' });
       }
+
+      const placeId = `desk-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const deskData = insertDeskSchema.parse({
+        ...req.body,
+        placeId,
+        parentPlaceId: section.placeId,
+      });
 
       const result = await powerShellService.createPlace(
         'Desk',
@@ -613,10 +641,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       if (result.exitCode === 0) {
-        const desk = await storage.createDesk({
-          ...deskData,
-          parentPlaceId: section.placeId,
-        });
+        const desk = await storage.createDesk(deskData);
         
         await storage.addCommandHistory({
           command: `New-Place -Type Desk -Name "${deskData.name}" -ParentId "${section.placeId}"`,
@@ -629,22 +654,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(500).json({ message: 'Failed to create desk', error: result.error });
       }
     } catch (error) {
-      res.status(400).json({ message: 'Invalid desk data' });
+      console.error('Desk validation error:', error);
+      res.status(400).json({ message: 'Invalid desk data', error: error instanceof Error ? error.message : 'Unknown validation error' });
     }
   });
 
   app.post('/api/places/room', async (req, res) => {
     try {
-      const roomData = insertRoomSchema.parse(req.body);
-      const floor = await storage.getFloorById ? await storage.getFloorById(roomData.floorId) : null;
+      const floor = await storage.getFloorById(req.body.floorId);
       
       if (!floor) {
         return res.status(400).json({ message: 'Floor not found' });
       }
 
-      const parentId = roomData.sectionId ? 
-        (await storage.getSectionById ? await storage.getSectionById(roomData.sectionId) : null)?.placeId : 
+      const parentId = req.body.sectionId ? 
+        (await storage.getSectionById(req.body.sectionId))?.placeId : 
         floor.placeId;
+
+      const placeId = `room-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const roomData = insertRoomSchema.parse({
+        ...req.body,
+        placeId,
+        parentPlaceId: parentId || floor.placeId,
+      });
 
       const result = await powerShellService.createPlace(
         'Room',
@@ -659,10 +691,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       if (result.exitCode === 0) {
-        const room = await storage.createRoom({
-          ...roomData,
-          parentPlaceId: parentId || floor.placeId,
-        });
+        const room = await storage.createRoom(roomData);
         
         await storage.addCommandHistory({
           command: `New-Place -Type Room -Name "${roomData.name}" -ParentId "${parentId || floor.placeId}"`,
@@ -675,7 +704,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(500).json({ message: 'Failed to create room', error: result.error });
       }
     } catch (error) {
-      res.status(400).json({ message: 'Invalid room data' });
+      console.error('Room validation error:', error);
+      res.status(400).json({ message: 'Invalid room data', error: error instanceof Error ? error.message : 'Unknown validation error' });
     }
   });
 

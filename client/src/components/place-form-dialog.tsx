@@ -100,6 +100,7 @@ export function PlaceFormDialog({
   const form = useForm({
     resolver: zodResolver(getSchema()),
     defaultValues: editData || getDefaultValues(),
+    mode: "onChange"
   });
 
   function getDefaultValues() {
@@ -143,6 +144,7 @@ export function PlaceFormDialog({
   });
 
   const onSubmit = (data: any) => {
+    console.log('Form data being submitted:', data);
     createMutation.mutate(data);
   };
 
@@ -431,6 +433,11 @@ export function PlaceFormDialog({
             </Button>
           </DialogFooter>
         </form>
+        {/* Debug form state */}
+        <div className="mt-4 p-2 bg-gray-100 text-xs">
+          <div>Form errors: {JSON.stringify(form.formState.errors)}</div>
+          <div>Form values: {JSON.stringify(form.watch())}</div>
+        </div>
       </DialogContent>
     </Dialog>
   );
