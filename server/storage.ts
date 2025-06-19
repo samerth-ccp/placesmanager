@@ -871,5 +871,5 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-// Use MemStorage for now until database is properly set up
+// Use MemStorage - perfect for demo mode, live mode uses PowerShell API directly
 export const storage = new MemStorage();

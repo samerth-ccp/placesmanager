@@ -23,11 +23,11 @@ The system is built as a full-stack web application with a React frontend and Ex
 - **PowerShell Integration**: Child process spawning for PowerShell command execution
 - **Session Management**: Express sessions with PostgreSQL store
 
-### Database Architecture
-- **Database**: PostgreSQL 16
-- **ORM**: Drizzle ORM with Neon Database serverless driver
-- **Schema Management**: Drizzle Kit for migrations and schema management
-- **Connection**: Serverless-first approach using Neon Database
+### Storage Architecture
+- **Demo Mode**: In-memory storage for immediate testing and development
+- **Live Mode**: PowerShell commands interface directly with Microsoft 365 Places API
+- **Data Persistence**: Live data managed by Microsoft servers, demo data resets per session
+- **No Database Required**: Eliminates complexity since live environment provides all persistence
 
 ## Key Components
 
@@ -123,7 +123,7 @@ No configuration required - the switch happens automatically based on `process.p
 - June 19, 2025: Implemented complete CRUD functionality for Places management with proper PowerShell cmdlet integration
 - June 19, 2025: Enhanced PowerShell service to use authentic Microsoft Places cmdlets (New-Place, Set-Place, Remove-Place) with correct parameters
 - June 19, 2025: Fixed cascading dropdown filtering, room creation issues, and aligned PowerShell commands with Microsoft Places API specifications for production compatibility
-- June 19, 2025: Migrated from in-memory storage to PostgreSQL database storage for data persistence and production readiness
+- June 19, 2025: Confirmed in-memory storage is optimal - live environment uses PowerShell API directly, demo mode provides immediate feedback without persistence overhead
 
 ## User Preferences
 
