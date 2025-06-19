@@ -253,8 +253,32 @@ export function PlaceFormDialog({
   const renderSectionFields = () => (
     <>
       <div>
+        <Label htmlFor="buildingId">Building *</Label>
+        <Select 
+          value={form.watch("buildingId")?.toString()}
+          onValueChange={(value) => form.setValue("buildingId", parseInt(value))}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select building" />
+          </SelectTrigger>
+          <SelectContent>
+            {parentData?.buildings?.map((building) => (
+              <SelectItem key={building.id} value={building.id.toString()}>
+                {building.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {form.formState.errors.buildingId && (
+          <p className="text-sm text-red-500 mt-1">{form.formState.errors.buildingId.message}</p>
+        )}
+      </div>
+      <div>
         <Label htmlFor="floorId">Floor *</Label>
-        <Select onValueChange={(value) => form.setValue("floorId", parseInt(value))}>
+        <Select 
+          value={form.watch("floorId")?.toString()}
+          onValueChange={(value) => form.setValue("floorId", parseInt(value))}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Select floor" />
           </SelectTrigger>
