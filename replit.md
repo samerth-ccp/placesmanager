@@ -123,6 +123,7 @@ No configuration required - the switch happens automatically based on `process.p
 - June 19, 2025: Implemented complete CRUD functionality for Places management with proper PowerShell cmdlet integration
 - June 19, 2025: Enhanced PowerShell service to use authentic Microsoft Places cmdlets (New-Place, Set-Place, Remove-Place) with correct parameters
 - June 19, 2025: Fixed cascading dropdown filtering, room creation issues, and aligned PowerShell commands with Microsoft Places API specifications for production compatibility
+- June 19, 2025: Migrated from in-memory storage to PostgreSQL database storage for data persistence and production readiness
 
 ## User Preferences
 

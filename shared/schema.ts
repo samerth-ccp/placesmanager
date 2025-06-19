@@ -42,28 +42,32 @@ export const sections = pgTable("sections", {
 export const desks = pgTable("desks", {
   id: serial("id").primaryKey(),
   placeId: text("place_id").notNull().unique(),
-  sectionId: integer("section_id").references(() => sections.id),
+  sectionId: integer("section_id").references(() => sections.id).notNull(),
   parentPlaceId: text("parent_place_id").notNull(),
   name: text("name").notNull(),
-  type: text("type").notNull(), // 'Desk' or 'Room' or 'Workspace'
+  type: text("type").notNull(), // 'Desk' or 'Workspace'
+  description: text("description"),
+  displayName: text("display_name"),
   emailAddress: text("email_address"),
   capacity: integer("capacity"),
-  isBookable: boolean("is_bookable").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
+  isBookable: boolean("is_bookable").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const rooms = pgTable("rooms", {
   id: serial("id").primaryKey(),
   placeId: text("place_id").notNull().unique(),
-  sectionId: integer("section_id").references(() => sections.id),
-  floorId: integer("floor_id").references(() => floors.id),
+  floorId: integer("floor_id").references(() => floors.id).notNull(),
+  sectionId: integer("section_id").references(() => sections.id), // Optional - rooms can be directly on floors
   parentPlaceId: text("parent_place_id").notNull(),
   name: text("name").notNull(),
-  type: text("type").notNull(), // 'Room'
+  type: text("type").notNull().default("Room"),
+  description: text("description"),
+  displayName: text("display_name"),
   emailAddress: text("email_address"),
   capacity: integer("capacity"),
-  isBookable: boolean("is_bookable").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
+  isBookable: boolean("is_bookable").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const moduleStatus = pgTable("module_status", {
