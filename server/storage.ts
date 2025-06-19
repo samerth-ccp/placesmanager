@@ -26,23 +26,29 @@ export interface IStorage {
   getFloorById(id: number): Promise<Floor | undefined>;
   getFloorByPlaceId(placeId: string): Promise<Floor | undefined>;
   createFloor(floor: InsertFloor): Promise<Floor>;
+  deleteFloor(id: number): Promise<void>;
 
   // Section methods
   getSectionsByFloorId(floorId: number): Promise<Section[]>;
   getSectionById(id: number): Promise<Section | undefined>;
   getSectionByPlaceId(placeId: string): Promise<Section | undefined>;
   createSection(section: InsertSection): Promise<Section>;
+  deleteSection(id: number): Promise<void>;
 
   // Desk methods
   getDesksBySectionId(sectionId: number): Promise<Desk[]>;
+  getDeskById(id: number): Promise<Desk | undefined>;
   getDeskByPlaceId(placeId: string): Promise<Desk | undefined>;
   createDesk(desk: InsertDesk): Promise<Desk>;
+  deleteDesk(id: number): Promise<void>;
 
   // Room methods
   getRoomsBySectionId(sectionId: number): Promise<Room[]>;
   getRoomsByFloorId(floorId: number): Promise<Room[]>;
+  getRoomById(id: number): Promise<Room | undefined>;
   getRoomByPlaceId(placeId: string): Promise<Room | undefined>;
   createRoom(room: InsertRoom): Promise<Room>;
+  deleteRoom(id: number): Promise<void>;
 
   // Module status methods
   getAllModuleStatus(): Promise<ModuleStatus[]>;
@@ -343,6 +349,10 @@ export class MemStorage implements IStorage {
     return floor;
   }
 
+  async deleteFloor(id: number): Promise<void> {
+    this.floors.delete(id);
+  }
+
   // Section methods
   async getSectionsByFloorId(floorId: number): Promise<Section[]> {
     return Array.from(this.sections.values()).filter(section => section.floorId === floorId);
@@ -372,9 +382,17 @@ export class MemStorage implements IStorage {
     return section;
   }
 
+  async deleteSection(id: number): Promise<void> {
+    this.sections.delete(id);
+  }
+
   // Desk methods
   async getDesksBySectionId(sectionId: number): Promise<Desk[]> {
     return Array.from(this.desks.values()).filter(desk => desk.sectionId === sectionId);
+  }
+
+  async getDeskById(id: number): Promise<Desk | undefined> {
+    return this.desks.get(id);
   }
 
   async getDeskByPlaceId(placeId: string): Promise<Desk | undefined> {
@@ -399,6 +417,10 @@ export class MemStorage implements IStorage {
     return desk;
   }
 
+  async deleteDesk(id: number): Promise<void> {
+    this.desks.delete(id);
+  }
+
   // Room methods
   async getRoomsBySectionId(sectionId: number): Promise<Room[]> {
     return Array.from(this.rooms.values()).filter(room => room.sectionId === sectionId);
@@ -406,6 +428,10 @@ export class MemStorage implements IStorage {
 
   async getRoomsByFloorId(floorId: number): Promise<Room[]> {
     return Array.from(this.rooms.values()).filter(room => room.floorId === floorId);
+  }
+
+  async getRoomById(id: number): Promise<Room | undefined> {
+    return this.rooms.get(id);
   }
 
   async getRoomByPlaceId(placeId: string): Promise<Room | undefined> {
@@ -429,6 +455,10 @@ export class MemStorage implements IStorage {
     };
     this.rooms.set(id, room);
     return room;
+  }
+
+  async deleteRoom(id: number): Promise<void> {
+    this.rooms.delete(id);
   }
 
   // Module status methods
