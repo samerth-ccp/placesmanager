@@ -144,8 +144,11 @@ export function PlaceFormDialog({
 
   const createMutation = useMutation({
     mutationFn: (data: any) => {
-      const endpoint = `/api/places/${type}`;
-      return apiRequest(editData ? 'PUT' : 'POST', editData ? `${endpoint}/${editData.id}` : endpoint, data);
+      if (editData) {
+        return apiRequest('PUT', `/api/places/${type}/${editData.id}`, data);
+      } else {
+        return apiRequest('POST', `/api/places/${type}`, data);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/places/hierarchy'] });
@@ -283,7 +286,9 @@ export function PlaceFormDialog({
             <SelectValue placeholder="Select floor" />
           </SelectTrigger>
           <SelectContent>
-            {parentData?.floors?.map((floor) => (
+            {parentData?.floors?.filter((floor: any) => 
+              !form.watch("buildingId") || floor.buildingId === form.watch("buildingId")
+            ).map((floor: any) => (
               <SelectItem key={floor.id} value={floor.id.toString()}>
                 {floor.name}
               </SelectItem>
@@ -311,13 +316,62 @@ export function PlaceFormDialog({
   const renderDeskFields = () => (
     <>
       <div>
+        <Label htmlFor="buildingId">Building *</Label>
+        <Select 
+          value={form.watch("buildingId")?.toString()}
+          onValueChange={(value) => form.setValue("buildingId", parseInt(value))}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select building" />
+          </SelectTrigger>
+          <SelectContent>
+            {parentData?.buildings?.map((building: any) => (
+              <SelectItem key={building.id} value={building.id.toString()}>
+                {building.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {form.formState.errors.buildingId && (
+          <p className="text-sm text-red-500 mt-1">{form.formState.errors.buildingId.message}</p>
+        )}
+      </div>
+      <div>
+        <Label htmlFor="floorId">Floor *</Label>
+        <Select 
+          value={form.watch("floorId")?.toString()}
+          onValueChange={(value) => form.setValue("floorId", parseInt(value))}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select floor" />
+          </SelectTrigger>
+          <SelectContent>
+            {parentData?.floors?.filter((floor: any) => 
+              !form.watch("buildingId") || floor.buildingId === form.watch("buildingId")
+            ).map((floor: any) => (
+              <SelectItem key={floor.id} value={floor.id.toString()}>
+                {floor.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {form.formState.errors.floorId && (
+          <p className="text-sm text-red-500 mt-1">{form.formState.errors.floorId.message}</p>
+        )}
+      </div>
+      <div>
         <Label htmlFor="sectionId">Section *</Label>
-        <Select onValueChange={(value) => form.setValue("sectionId", parseInt(value))}>
+        <Select 
+          value={form.watch("sectionId")?.toString()}
+          onValueChange={(value) => form.setValue("sectionId", parseInt(value))}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Select section" />
           </SelectTrigger>
           <SelectContent>
-            {parentData?.sections?.map((section) => (
+            {parentData?.sections?.filter((section: any) => 
+              !form.watch("floorId") || section.floorId === form.watch("floorId")
+            ).map((section: any) => (
               <SelectItem key={section.id} value={section.id.toString()}>
                 {section.name}
               </SelectItem>
