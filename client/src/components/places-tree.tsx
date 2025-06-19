@@ -45,6 +45,10 @@ export function PlacesTree() {
     queryKey: ['/api/places/hierarchy'],
   });
 
+  const { data: parentData } = useQuery<any>({
+    queryKey: ['/api/places/parents'],
+  });
+
   const refreshPlacesMutation = useMutation({
     mutationFn: () => apiRequest('GET', '/api/places/refresh'),
     onSuccess: () => {
@@ -71,6 +75,44 @@ export function PlacesTree() {
       }
     },
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: ({ type, id }: { type: string; id: number }) => 
+      apiRequest('DELETE', `/api/places/${type}/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/places/hierarchy'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/places/parents'] });
+      toast({
+        title: "Deleted Successfully",
+        description: "Item has been removed",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Delete Failed",
+        description: error?.response?.data?.message || "Failed to delete item",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const openAddDialog = (type: "building" | "floor" | "section" | "desk" | "room") => {
+    setDialogType(type);
+    setEditData(null);
+    setDialogOpen(true);
+  };
+
+  const openEditDialog = (type: "building" | "floor" | "section" | "desk" | "room", data: any) => {
+    setDialogType(type);
+    setEditData(data);
+    setDialogOpen(true);
+  };
+
+  const handleDelete = (type: string, id: number, name: string) => {
+    if (confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) {
+      deleteMutation.mutate({ type, id });
+    }
+  };
 
   const toggleExpanded = (nodeId: string) => {
     const newExpanded = new Set(expandedNodes);
@@ -125,9 +167,14 @@ export function PlacesTree() {
         {desk.type === 'Workspace' && (
           <Badge className="bg-blue-100 text-blue-800">Workspace</Badge>
         )}
-        <Button variant="ghost" size="sm">
-          <Edit size={12} />
-        </Button>
+        <div className="flex items-center space-x-1">
+          <Button variant="ghost" size="sm" onClick={() => openEditDialog("desk", desk)}>
+            <Edit size={12} />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => handleDelete("desk", desk.id, desk.name)}>
+            <Trash2 size={12} />
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -161,9 +208,14 @@ export function PlacesTree() {
               </div>
             </div>
           </div>
-          <Button variant="ghost" size="sm">
-            <Edit size={12} />
-          </Button>
+          <div className="flex items-center space-x-1">
+            <Button variant="ghost" size="sm" onClick={() => openEditDialog("section", section)}>
+              <Edit size={12} />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => handleDelete("section", section.id, section.name)}>
+              <Trash2 size={12} />
+            </Button>
+          </div>
         </div>
 
         {hasDesks && isExpanded && (
@@ -196,9 +248,14 @@ export function PlacesTree() {
         {room.isBookable && (
           <Badge className="bg-green-100 text-green-800">Bookable</Badge>
         )}
-        <Button variant="ghost" size="sm">
-          <Edit size={12} />
-        </Button>
+        <div className="flex items-center space-x-1">
+          <Button variant="ghost" size="sm" onClick={() => openEditDialog("room", room)}>
+            <Edit size={12} />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => handleDelete("room", room.id, room.name)}>
+            <Trash2 size={12} />
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -233,9 +290,14 @@ export function PlacesTree() {
               </div>
             </div>
           </div>
-          <Button variant="ghost" size="sm">
-            <Edit size={12} />
-          </Button>
+          <div className="flex items-center space-x-1">
+            <Button variant="ghost" size="sm" onClick={() => openEditDialog("floor", floor)}>
+              <Edit size={12} />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => handleDelete("floor", floor.id, floor.name)}>
+              <Trash2 size={12} />
+            </Button>
+          </div>
         </div>
 
         {(hasSections || hasRooms) && isExpanded && (
@@ -277,8 +339,11 @@ export function PlacesTree() {
           </div>
           <div className="flex items-center space-x-2">
             <Badge className="bg-green-100 text-green-800">Active</Badge>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" onClick={() => openEditDialog("building", building)}>
               <Edit size={12} />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => handleDelete("building", building.id, building.name)}>
+              <Trash2 size={12} />
             </Button>
           </div>
         </div>
@@ -392,26 +457,37 @@ export function PlacesTree() {
         )}
 
         {/* Add New Items */}
-        {hierarchy && hierarchy.length > 0 && (
-          <div className="flex flex-wrap gap-3 pt-4 border-t">
-            <Button variant="default">
-              <Plus size={16} className="mr-2" />
-              Add Building
-            </Button>
-            <Button variant="outline">
-              <Plus size={16} className="mr-2" />
-              Add Floor
-            </Button>
-            <Button variant="outline">
-              <Plus size={16} className="mr-2" />
-              Add Section
-            </Button>
-            <Button variant="outline">
-              <Plus size={16} className="mr-2" />
-              Add Dock/Room
-            </Button>
-          </div>
-        )}
+        <div className="flex flex-wrap gap-3 pt-4 border-t">
+          <Button variant="default" onClick={() => openAddDialog("building")}>
+            <Plus size={16} className="mr-2" />
+            Add Building
+          </Button>
+          <Button variant="outline" onClick={() => openAddDialog("floor")}>
+            <Plus size={16} className="mr-2" />
+            Add Floor
+          </Button>
+          <Button variant="outline" onClick={() => openAddDialog("section")}>
+            <Plus size={16} className="mr-2" />
+            Add Section
+          </Button>
+          <Button variant="outline" onClick={() => openAddDialog("desk")}>
+            <Plus size={16} className="mr-2" />
+            Add Desk
+          </Button>
+          <Button variant="outline" onClick={() => openAddDialog("room")}>
+            <Plus size={16} className="mr-2" />
+            Add Room
+          </Button>
+        </div>
+
+        {/* Form Dialog */}
+        <PlaceFormDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          type={dialogType}
+          editData={editData}
+          parentData={parentData}
+        />
       </CardContent>
     </Card>
   );

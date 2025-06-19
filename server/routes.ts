@@ -728,6 +728,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Similar delete endpoints for other types
+  app.delete('/api/places/floor/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const floor = await storage.getFloorById(id);
+      
+      if (!floor) {
+        return res.status(404).json({ message: 'Floor not found' });
+      }
+
+      await storage.deleteFloor ? await storage.deleteFloor(id) : null;
+
+      await storage.addCommandHistory({
+        command: `Remove-Place -PlaceId "${floor.placeId}"`,
+        output: 'Floor deleted successfully',
+        status: 'success',
+      });
+
+      res.json({ message: 'Floor deleted successfully' });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to delete floor' });
+    }
+  });
+
+  app.delete('/api/places/section/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const section = await storage.getSectionById(id);
+      
+      if (!section) {
+        return res.status(404).json({ message: 'Section not found' });
+      }
+
+      await storage.deleteSection ? await storage.deleteSection(id) : null;
+
+      await storage.addCommandHistory({
+        command: `Remove-Place -PlaceId "${section.placeId}"`,
+        output: 'Section deleted successfully',
+        status: 'success',
+      });
+
+      res.json({ message: 'Section deleted successfully' });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to delete section' });
+    }
+  });
+
+  app.delete('/api/places/desk/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const desk = await storage.getDeskById ? await storage.getDeskById(id) : null;
+      
+      if (!desk) {
+        return res.status(404).json({ message: 'Desk not found' });
+      }
+
+      await storage.deleteDesk ? await storage.deleteDesk(id) : null;
+
+      await storage.addCommandHistory({
+        command: `Remove-Place -PlaceId "${desk.placeId}"`,
+        output: 'Desk deleted successfully',
+        status: 'success',
+      });
+
+      res.json({ message: 'Desk deleted successfully' });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to delete desk' });
+    }
+  });
+
+  app.delete('/api/places/room/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const room = await storage.getRoomById ? await storage.getRoomById(id) : null;
+      
+      if (!room) {
+        return res.status(404).json({ message: 'Room not found' });
+      }
+
+      await storage.deleteRoom ? await storage.deleteRoom(id) : null;
+
+      await storage.addCommandHistory({
+        command: `Remove-Place -PlaceId "${room.placeId}"`,
+        output: 'Room deleted successfully',
+        status: 'success',
+      });
+
+      res.json({ message: 'Room deleted successfully' });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to delete room' });
+    }
+  });
+
   // Get parent data for form dropdowns
   app.get('/api/places/parents', async (req, res) => {
     try {
