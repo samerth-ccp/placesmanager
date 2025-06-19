@@ -785,17 +785,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Floor not found' });
       }
 
-      await storage.deleteFloor ? await storage.deleteFloor(id) : null;
+      const result = await powerShellService.deletePlace(floor.placeId);
+      
+      if (result.exitCode === 0) {
+        await storage.deleteFloor(id);
 
-      await storage.addCommandHistory({
-        command: `Remove-Place -PlaceId "${floor.placeId}"`,
-        output: 'Floor deleted successfully',
-        status: 'success',
-      });
+        await storage.addCommandHistory({
+          command: `Remove-Place -Identity "${floor.placeId}" -Confirm:$false`,
+          output: result.output,
+          status: 'success',
+        });
 
-      res.json({ message: 'Floor deleted successfully' });
+        res.json({ message: 'Floor deleted successfully', result });
+      } else {
+        res.status(500).json({ message: 'Failed to delete floor', error: result.error });
+      }
     } catch (error) {
-      res.status(500).json({ message: 'Failed to delete floor' });
+      console.error('Floor deletion error:', error);
+      res.status(500).json({ message: 'Failed to delete floor', error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
@@ -808,63 +815,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Section not found' });
       }
 
-      await storage.deleteSection ? await storage.deleteSection(id) : null;
+      const result = await powerShellService.deletePlace(section.placeId);
+      
+      if (result.exitCode === 0) {
+        await storage.deleteSection(id);
 
-      await storage.addCommandHistory({
-        command: `Remove-Place -PlaceId "${section.placeId}"`,
-        output: 'Section deleted successfully',
-        status: 'success',
-      });
+        await storage.addCommandHistory({
+          command: `Remove-Place -Identity "${section.placeId}" -Confirm:$false`,
+          output: result.output,
+          status: 'success',
+        });
 
-      res.json({ message: 'Section deleted successfully' });
+        res.json({ message: 'Section deleted successfully', result });
+      } else {
+        res.status(500).json({ message: 'Failed to delete section', error: result.error });
+      }
     } catch (error) {
-      res.status(500).json({ message: 'Failed to delete section' });
+      console.error('Section deletion error:', error);
+      res.status(500).json({ message: 'Failed to delete section', error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
   app.delete('/api/places/desk/:id', async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const desk = await storage.getDeskById ? await storage.getDeskById(id) : null;
+      const desk = await storage.getDeskById(id);
       
       if (!desk) {
         return res.status(404).json({ message: 'Desk not found' });
       }
 
-      await storage.deleteDesk ? await storage.deleteDesk(id) : null;
+      const result = await powerShellService.deletePlace(desk.placeId);
+      
+      if (result.exitCode === 0) {
+        await storage.deleteDesk(id);
 
-      await storage.addCommandHistory({
-        command: `Remove-Place -PlaceId "${desk.placeId}"`,
-        output: 'Desk deleted successfully',
-        status: 'success',
-      });
+        await storage.addCommandHistory({
+          command: `Remove-Place -Identity "${desk.placeId}" -Confirm:$false`,
+          output: result.output,
+          status: 'success',
+        });
 
-      res.json({ message: 'Desk deleted successfully' });
+        res.json({ message: 'Desk deleted successfully', result });
+      } else {
+        res.status(500).json({ message: 'Failed to delete desk', error: result.error });
+      }
     } catch (error) {
-      res.status(500).json({ message: 'Failed to delete desk' });
+      console.error('Desk deletion error:', error);
+      res.status(500).json({ message: 'Failed to delete desk', error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
   app.delete('/api/places/room/:id', async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const room = await storage.getRoomById ? await storage.getRoomById(id) : null;
+      const room = await storage.getRoomById(id);
       
       if (!room) {
         return res.status(404).json({ message: 'Room not found' });
       }
 
-      await storage.deleteRoom ? await storage.deleteRoom(id) : null;
+      const result = await powerShellService.deletePlace(room.placeId);
+      
+      if (result.exitCode === 0) {
+        await storage.deleteRoom(id);
 
-      await storage.addCommandHistory({
-        command: `Remove-Place -PlaceId "${room.placeId}"`,
-        output: 'Room deleted successfully',
-        status: 'success',
-      });
+        await storage.addCommandHistory({
+          command: `Remove-Place -Identity "${room.placeId}" -Confirm:$false`,
+          output: result.output,
+          status: 'success',
+        });
 
-      res.json({ message: 'Room deleted successfully' });
+        res.json({ message: 'Room deleted successfully', result });
+      } else {
+        res.status(500).json({ message: 'Failed to delete room', error: result.error });
+      }
     } catch (error) {
-      res.status(500).json({ message: 'Failed to delete room' });
+      console.error('Room deletion error:', error);
+      res.status(500).json({ message: 'Failed to delete room', error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 

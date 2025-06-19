@@ -444,22 +444,152 @@ Deploy to Windows for full PowerShell functionality.
     parentId?: string,
     additionalParams?: Record<string, string>
   ): Promise<PowerShellResult> {
-    let command = `New-Place -Type ${type} -Name "${name}"`;
+    // Use actual Microsoft Places PowerShell cmdlets
+    let command = '';
+    
+    switch (type.toLowerCase()) {
+      case 'building':
+        command = this.buildCreateBuildingCommand(name, description, additionalParams);
+        break;
+      case 'floor':
+        command = this.buildCreateFloorCommand(name, description, parentId, additionalParams);
+        break;
+      case 'section':
+        command = this.buildCreateSectionCommand(name, description, parentId, additionalParams);
+        break;
+      case 'desk':
+        command = this.buildCreateWorkspaceCommand(name, parentId, additionalParams);
+        break;
+      case 'room':
+        command = this.buildCreateRoomCommand(name, parentId, additionalParams);
+        break;
+      default:
+        command = `New-Place -DisplayName "${name}" -Type ${type}`;
+    }
+
+    return this.executeCommand(command);
+  }
+
+  private buildCreateBuildingCommand(name: string, description?: string, params?: Record<string, string>): string {
+    const cmdParts = [`New-Place -DisplayName "${name}" -Type Building`];
     
     if (description) {
-      command += ` -Description "${description}"`;
+      cmdParts.push(`-Description "${description}"`);
     }
+
+    if (params?.CountryOrRegion) {
+      cmdParts.push(`-CountryOrRegion "${params.CountryOrRegion}"`);
+    }
+    if (params?.State) {
+      cmdParts.push(`-State "${params.State}"`);
+    }
+    if (params?.City) {
+      cmdParts.push(`-City "${params.City}"`);
+    }
+    if (params?.Street) {
+      cmdParts.push(`-Street "${params.Street}"`);
+    }
+    if (params?.PostalCode) {
+      cmdParts.push(`-PostalCode "${params.PostalCode}"`);
+    }
+
+    return cmdParts.join(' ');
+  }
+
+  private buildCreateFloorCommand(name: string, description?: string, parentId?: string, params?: Record<string, string>): string {
+    const cmdParts = [`New-Place -DisplayName "${name}" -Type Floor`];
+    
+    if (description) {
+      cmdParts.push(`-Description "${description}"`);
+    }
+    if (parentId) {
+      cmdParts.push(`-ParentId "${parentId}"`);
+    }
+
+    return cmdParts.join(' ');
+  }
+
+  private buildCreateSectionCommand(name: string, description?: string, parentId?: string, params?: Record<string, string>): string {
+    const cmdParts = [`New-Place -DisplayName "${name}" -Type Section`];
+    
+    if (description) {
+      cmdParts.push(`-Description "${description}"`);
+    }
+    if (parentId) {
+      cmdParts.push(`-ParentId "${parentId}"`);
+    }
+
+    return cmdParts.join(' ');
+  }
+
+  private buildCreateWorkspaceCommand(name: string, parentId?: string, params?: Record<string, string>): string {
+    const workspaceType = params?.Type === 'Workspace' ? 'Workspace' : 'Desk';
+    const cmdParts = [`New-Place -DisplayName "${name}" -Type ${workspaceType}`];
     
     if (parentId) {
-      command += ` -ParentId "${parentId}"`;
+      cmdParts.push(`-ParentId "${parentId}"`);
+    }
+    if (params?.EmailAddress) {
+      cmdParts.push(`-EmailAddress "${params.EmailAddress}"`);
+    }
+    if (params?.Capacity) {
+      cmdParts.push(`-Capacity ${params.Capacity}`);
+    }
+    if (params?.IsBookable === 'true') {
+      cmdParts.push(`-IsBookable $true`);
+    } else if (params?.IsBookable === 'false') {
+      cmdParts.push(`-IsBookable $false`);
     }
 
-    if (additionalParams) {
-      Object.entries(additionalParams).forEach(([key, value]) => {
-        command += ` -${key} "${value}"`;
-      });
+    return cmdParts.join(' ');
+  }
+
+  private buildCreateRoomCommand(name: string, parentId?: string, params?: Record<string, string>): string {
+    const cmdParts = [`New-Place -DisplayName "${name}" -Type Room`];
+    
+    if (parentId) {
+      cmdParts.push(`-ParentId "${parentId}"`);
+    }
+    if (params?.EmailAddress) {
+      cmdParts.push(`-EmailAddress "${params.EmailAddress}"`);
+    }
+    if (params?.Capacity) {
+      cmdParts.push(`-Capacity ${params.Capacity}`);
+    }
+    if (params?.IsBookable === 'true') {
+      cmdParts.push(`-IsBookable $true`);
+    } else if (params?.IsBookable === 'false') {
+      cmdParts.push(`-IsBookable $false`);
     }
 
+    return cmdParts.join(' ');
+  }
+
+  async updatePlace(placeId: string, updates: Record<string, any>): Promise<PowerShellResult> {
+    const cmdParts = [`Set-Place -Identity "${placeId}"`];
+    
+    if (updates.displayName || updates.name) {
+      cmdParts.push(`-DisplayName "${updates.displayName || updates.name}"`);
+    }
+    if (updates.description) {
+      cmdParts.push(`-Description "${updates.description}"`);
+    }
+    if (updates.emailAddress) {
+      cmdParts.push(`-EmailAddress "${updates.emailAddress}"`);
+    }
+    if (updates.capacity) {
+      cmdParts.push(`-Capacity ${updates.capacity}`);
+    }
+    if (updates.isBookable !== undefined) {
+      cmdParts.push(`-IsBookable $${updates.isBookable ? 'true' : 'false'}`);
+    }
+
+    const command = cmdParts.join(' ');
+    return this.executeCommand(command);
+  }
+
+  async deletePlace(placeId: string): Promise<PowerShellResult> {
+    const command = `Remove-Place -Identity "${placeId}" -Confirm:$false`;
     return this.executeCommand(command);
   }
 
