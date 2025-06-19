@@ -26,6 +26,7 @@ export interface IStorage {
   getFloorById(id: number): Promise<Floor | undefined>;
   getFloorByPlaceId(placeId: string): Promise<Floor | undefined>;
   createFloor(floor: InsertFloor): Promise<Floor>;
+  updateFloor(id: number, floor: Partial<InsertFloor>): Promise<Floor | undefined>;
   deleteFloor(id: number): Promise<void>;
 
   // Section methods
@@ -33,6 +34,7 @@ export interface IStorage {
   getSectionById(id: number): Promise<Section | undefined>;
   getSectionByPlaceId(placeId: string): Promise<Section | undefined>;
   createSection(section: InsertSection): Promise<Section>;
+  updateSection(id: number, section: Partial<InsertSection>): Promise<Section | undefined>;
   deleteSection(id: number): Promise<void>;
 
   // Desk methods
@@ -40,6 +42,7 @@ export interface IStorage {
   getDeskById(id: number): Promise<Desk | undefined>;
   getDeskByPlaceId(placeId: string): Promise<Desk | undefined>;
   createDesk(desk: InsertDesk): Promise<Desk>;
+  updateDesk(id: number, desk: Partial<InsertDesk>): Promise<Desk | undefined>;
   deleteDesk(id: number): Promise<void>;
 
   // Room methods
@@ -48,6 +51,7 @@ export interface IStorage {
   getRoomById(id: number): Promise<Room | undefined>;
   getRoomByPlaceId(placeId: string): Promise<Room | undefined>;
   createRoom(room: InsertRoom): Promise<Room>;
+  updateRoom(id: number, room: Partial<InsertRoom>): Promise<Room | undefined>;
   deleteRoom(id: number): Promise<void>;
 
   // Module status methods
@@ -349,6 +353,15 @@ export class MemStorage implements IStorage {
     return floor;
   }
 
+  async updateFloor(id: number, updateData: Partial<InsertFloor>): Promise<Floor | undefined> {
+    const floor = this.floors.get(id);
+    if (!floor) return undefined;
+    
+    const updated: Floor = { ...floor, ...updateData };
+    this.floors.set(id, updated);
+    return updated;
+  }
+
   async deleteFloor(id: number): Promise<void> {
     this.floors.delete(id);
   }
@@ -380,6 +393,15 @@ export class MemStorage implements IStorage {
     };
     this.sections.set(id, section);
     return section;
+  }
+
+  async updateSection(id: number, updateData: Partial<InsertSection>): Promise<Section | undefined> {
+    const section = this.sections.get(id);
+    if (!section) return undefined;
+    
+    const updated: Section = { ...section, ...updateData };
+    this.sections.set(id, updated);
+    return updated;
   }
 
   async deleteSection(id: number): Promise<void> {
@@ -415,6 +437,15 @@ export class MemStorage implements IStorage {
     };
     this.desks.set(id, desk);
     return desk;
+  }
+
+  async updateDesk(id: number, updateData: Partial<InsertDesk>): Promise<Desk | undefined> {
+    const desk = this.desks.get(id);
+    if (!desk) return undefined;
+    
+    const updated: Desk = { ...desk, ...updateData };
+    this.desks.set(id, updated);
+    return updated;
   }
 
   async deleteDesk(id: number): Promise<void> {
@@ -455,6 +486,15 @@ export class MemStorage implements IStorage {
     };
     this.rooms.set(id, room);
     return room;
+  }
+
+  async updateRoom(id: number, updateData: Partial<InsertRoom>): Promise<Room | undefined> {
+    const room = this.rooms.get(id);
+    if (!room) return undefined;
+    
+    const updated: Room = { ...room, ...updateData };
+    this.rooms.set(id, updated);
+    return updated;
   }
 
   async deleteRoom(id: number): Promise<void> {

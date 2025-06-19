@@ -168,7 +168,10 @@ export function PlacesTree() {
           <Badge className="bg-blue-100 text-blue-800">Workspace</Badge>
         )}
         <div className="flex items-center space-x-1">
-          <Button variant="ghost" size="sm" onClick={() => openEditDialog("desk", desk)}>
+          <Button variant="ghost" size="sm" onClick={(e) => {
+            e.stopPropagation();
+            openEditDialog("desk", { ...desk, sectionId: section.id, floorId: floor.id, buildingId: building.id });
+          }}>
             <Edit size={12} />
           </Button>
           <Button variant="ghost" size="sm" onClick={() => handleDelete("desk", desk.id, desk.name)}>
@@ -209,7 +212,10 @@ export function PlacesTree() {
             </div>
           </div>
           <div className="flex items-center space-x-1">
-            <Button variant="ghost" size="sm" onClick={() => openEditDialog("section", section)}>
+            <Button variant="ghost" size="sm" onClick={(e) => {
+              e.stopPropagation();
+              openEditDialog("section", { ...section, floorId: floor.id, buildingId: building.id });
+            }}>
               <Edit size={12} />
             </Button>
             <Button variant="ghost" size="sm" onClick={() => handleDelete("section", section.id, section.name)}>
@@ -249,7 +255,10 @@ export function PlacesTree() {
           <Badge className="bg-green-100 text-green-800">Bookable</Badge>
         )}
         <div className="flex items-center space-x-1">
-          <Button variant="ghost" size="sm" onClick={() => openEditDialog("room", room)}>
+          <Button variant="ghost" size="sm" onClick={(e) => {
+            e.stopPropagation();
+            openEditDialog("room", { ...room, floorId: floor.id, buildingId: building.id });
+          }}>
             <Edit size={12} />
           </Button>
           <Button variant="ghost" size="sm" onClick={() => handleDelete("room", room.id, room.name)}>
@@ -291,7 +300,10 @@ export function PlacesTree() {
             </div>
           </div>
           <div className="flex items-center space-x-1">
-            <Button variant="ghost" size="sm" onClick={() => openEditDialog("floor", floor)}>
+            <Button variant="ghost" size="sm" onClick={(e) => {
+              e.stopPropagation();
+              openEditDialog("floor", { ...floor, buildingId: building.id });
+            }}>
               <Edit size={12} />
             </Button>
             <Button variant="ghost" size="sm" onClick={() => handleDelete("floor", floor.id, floor.name)}>
@@ -339,7 +351,10 @@ export function PlacesTree() {
           </div>
           <div className="flex items-center space-x-2">
             <Badge className="bg-green-100 text-green-800">Active</Badge>
-            <Button variant="ghost" size="sm" onClick={() => openEditDialog("building", building)}>
+            <Button variant="ghost" size="sm" onClick={(e) => {
+              e.stopPropagation();
+              openEditDialog("building", building);
+            }}>
               <Edit size={12} />
             </Button>
             <Button variant="ghost" size="sm" onClick={() => handleDelete("building", building.id, building.name)}>

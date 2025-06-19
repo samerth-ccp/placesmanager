@@ -104,7 +104,7 @@ export function PlaceFormDialog({
   });
 
   // Update form values when editData changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (editData) {
       form.reset(getDefaultValues());
     }
