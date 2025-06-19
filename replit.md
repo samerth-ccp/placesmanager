@@ -122,6 +122,7 @@ No configuration required - the switch happens automatically based on `process.p
 - June 16, 2025: Fixed PowerShell command syntax (Connect-ExchangeOnline now uses -UserPrincipalName) and enhanced console execution with comprehensive demo responses
 - June 19, 2025: Implemented complete CRUD functionality for Places management with proper PowerShell cmdlet integration
 - June 19, 2025: Enhanced PowerShell service to use authentic Microsoft Places cmdlets (New-Place, Set-Place, Remove-Place) with correct parameters
+- June 19, 2025: Fixed cascading dropdown filtering, room creation issues, and aligned PowerShell commands with Microsoft Places API specifications for production compatibility
 
 ## User Preferences
 

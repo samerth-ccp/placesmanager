@@ -435,13 +435,39 @@ export function PlaceFormDialog({
   const renderRoomFields = () => (
     <>
       <div>
+        <Label htmlFor="buildingId">Building *</Label>
+        <Select 
+          value={form.watch("buildingId")?.toString()}
+          onValueChange={(value) => form.setValue("buildingId", parseInt(value))}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select building" />
+          </SelectTrigger>
+          <SelectContent>
+            {parentData?.buildings?.map((building: any) => (
+              <SelectItem key={building.id} value={building.id.toString()}>
+                {building.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {form.formState.errors.buildingId && (
+          <p className="text-sm text-red-500 mt-1">{form.formState.errors.buildingId.message}</p>
+        )}
+      </div>
+      <div>
         <Label htmlFor="floorId">Floor *</Label>
-        <Select onValueChange={(value) => form.setValue("floorId", parseInt(value))}>
+        <Select 
+          value={form.watch("floorId")?.toString()}
+          onValueChange={(value) => form.setValue("floorId", parseInt(value))}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Select floor" />
           </SelectTrigger>
           <SelectContent>
-            {parentData?.floors?.map((floor) => (
+            {parentData?.floors?.filter((floor: any) => 
+              !form.watch("buildingId") || floor.buildingId === form.watch("buildingId")
+            ).map((floor: any) => (
               <SelectItem key={floor.id} value={floor.id.toString()}>
                 {floor.name}
               </SelectItem>
@@ -453,13 +479,19 @@ export function PlaceFormDialog({
         )}
       </div>
       <div>
-        <Label htmlFor="sectionId">Section (Optional)</Label>
-        <Select onValueChange={(value) => form.setValue("sectionId", value ? parseInt(value) : undefined)}>
+        <Label htmlFor="sectionId">Section</Label>
+        <Select 
+          value={form.watch("sectionId")?.toString() || ""}
+          onValueChange={(value) => form.setValue("sectionId", value ? parseInt(value) : undefined)}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Select section (optional)" />
           </SelectTrigger>
           <SelectContent>
-            {parentData?.sections?.map((section) => (
+            <SelectItem value="">No Section</SelectItem>
+            {parentData?.sections?.filter((section: any) => 
+              !form.watch("floorId") || section.floorId === form.watch("floorId")
+            ).map((section: any) => (
               <SelectItem key={section.id} value={section.id.toString()}>
                 {section.name}
               </SelectItem>
