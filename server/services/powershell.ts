@@ -42,6 +42,13 @@ export class PowerShellService {
 
   async initialize(): Promise<void> {
     if (this.isInitialized) return;
+    
+    // Skip PowerShell process initialization in demo mode
+    if (this.isInDemoMode()) {
+      this.isInitialized = true;
+      return;
+    }
+    
     await this.startPersistentProcess();
     this.isInitialized = true;
   }
