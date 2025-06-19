@@ -239,6 +239,8 @@ export class MemStorage implements IStorage {
       parentPlaceId: section1.placeId,
       name: 'Desks A',
       type: 'Desk',
+      description: null,
+      displayName: null,
       emailAddress: 'desksa.foyer.thoughtswin@cloudpharmacy.com',
       capacity: 1,
       isBookable: true,
@@ -252,6 +254,8 @@ export class MemStorage implements IStorage {
       parentPlaceId: section2.placeId,
       name: '404-Cloud',
       type: 'Workspace',
+      description: null,
+      displayName: null,
       emailAddress: '404cloud.offices.thoughtswin@cloudpharmacy.com',
       capacity: 4,
       isBookable: true,
@@ -426,13 +430,15 @@ export class MemStorage implements IStorage {
     const desk: Desk = {
       id,
       placeId: insertDesk.placeId,
-      sectionId: insertDesk.sectionId ?? null,
+      sectionId: insertDesk.sectionId,
       parentPlaceId: insertDesk.parentPlaceId,
       name: insertDesk.name,
       type: insertDesk.type,
-      emailAddress: insertDesk.emailAddress ?? null,
-      capacity: insertDesk.capacity ?? null,
-      isBookable: insertDesk.isBookable ?? null,
+      description: insertDesk.description || null,
+      displayName: insertDesk.displayName || null,
+      emailAddress: insertDesk.emailAddress || null,
+      capacity: insertDesk.capacity || null,
+      isBookable: insertDesk.isBookable || null,
       createdAt: new Date(),
     };
     this.desks.set(id, desk);
@@ -474,14 +480,16 @@ export class MemStorage implements IStorage {
     const room: Room = {
       id,
       placeId: insertRoom.placeId,
-      sectionId: insertRoom.sectionId ?? null,
-      floorId: insertRoom.floorId ?? null,
+      floorId: insertRoom.floorId,
+      sectionId: insertRoom.sectionId || null,
       parentPlaceId: insertRoom.parentPlaceId,
       name: insertRoom.name,
       type: insertRoom.type,
-      emailAddress: insertRoom.emailAddress ?? null,
-      capacity: insertRoom.capacity ?? null,
-      isBookable: insertRoom.isBookable ?? null,
+      description: insertRoom.description || null,
+      displayName: insertRoom.displayName || null,
+      emailAddress: insertRoom.emailAddress || null,
+      capacity: insertRoom.capacity || null,
+      isBookable: insertRoom.isBookable || null,
       createdAt: new Date(),
     };
     this.rooms.set(id, room);
@@ -514,7 +522,9 @@ export class MemStorage implements IStorage {
     const existing = this.moduleStatuses.get(insertModuleStatus.moduleName);
     const moduleStatus: ModuleStatus = {
       id: existing?.id || this.currentId++,
-      ...insertModuleStatus,
+      moduleName: insertModuleStatus.moduleName,
+      status: insertModuleStatus.status,
+      version: insertModuleStatus.version || null,
       lastChecked: new Date(),
     };
     this.moduleStatuses.set(insertModuleStatus.moduleName, moduleStatus);
@@ -571,305 +581,7 @@ export class MemStorage implements IStorage {
   }
 }
 
-// Database storage implementation
-export class DatabaseStorage implements IStorage {
-  private db: any;
-  private eq: any;
 
-  constructor() {
-    // Dynamic imports to avoid circular dependencies
-    this.initializeDb();
-  }
-
-  private async initializeDb() {
-    try {
-      const dbModule = await import("./db");
-      const drizzleOrm = await import("drizzle-orm");
-      this.db = dbModule.db;
-      this.eq = drizzleOrm.eq;
-    } catch (error) {
-      console.error("Failed to initialize database:", error);
-    }
-  }
-
-  async getUser(id: number): Promise<User | undefined> {
-    if (!this.db || !this.eq) await this.initializeDb();
-    const [user] = await this.db.select().from(users).where(this.eq(users.id, id));
-    return user || undefined;
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    if (!this.db || !this.eq) await this.initializeDb();
-    const [user] = await this.db.select().from(users).where(this.eq(users.username, username));
-    return user || undefined;
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    if (!this.db || !this.eq) await this.initializeDb();
-    const [user] = await this.db
-      .insert(users)
-      .values(insertUser)
-      .returning();
-    return user;
-  }
-
-  // Building methods
-  async getAllBuildings(): Promise<Building[]> {
-    return await db.select().from(buildings);
-  }
-
-  async getBuildingById(id: number): Promise<Building | undefined> {
-    const [building] = await db.select().from(buildings).where(eq(buildings.id, id));
-    return building || undefined;
-  }
-
-  async getBuildingByPlaceId(placeId: string): Promise<Building | undefined> {
-    const [building] = await db.select().from(buildings).where(eq(buildings.placeId, placeId));
-    return building || undefined;
-  }
-
-  async createBuilding(insertBuilding: InsertBuilding): Promise<Building> {
-    const [building] = await db
-      .insert(buildings)
-      .values(insertBuilding)
-      .returning();
-    return building;
-  }
-
-  async updateBuilding(id: number, updateData: Partial<InsertBuilding>): Promise<Building | undefined> {
-    const [updated] = await db
-      .update(buildings)
-      .set(updateData)
-      .where(eq(buildings.id, id))
-      .returning();
-    return updated || undefined;
-  }
-
-  async deleteBuilding(id: number): Promise<void> {
-    await db.delete(buildings).where(eq(buildings.id, id));
-  }
-
-  // Floor methods
-  async getFloorsByBuildingId(buildingId: number): Promise<Floor[]> {
-    return await db.select().from(floors).where(eq(floors.buildingId, buildingId));
-  }
-
-  async getFloorById(id: number): Promise<Floor | undefined> {
-    const [floor] = await db.select().from(floors).where(eq(floors.id, id));
-    return floor || undefined;
-  }
-
-  async getFloorByPlaceId(placeId: string): Promise<Floor | undefined> {
-    const [floor] = await db.select().from(floors).where(eq(floors.placeId, placeId));
-    return floor || undefined;
-  }
-
-  async createFloor(insertFloor: InsertFloor): Promise<Floor> {
-    const [floor] = await db
-      .insert(floors)
-      .values(insertFloor)
-      .returning();
-    return floor;
-  }
-
-  async updateFloor(id: number, updateData: Partial<InsertFloor>): Promise<Floor | undefined> {
-    const [updated] = await db
-      .update(floors)
-      .set(updateData)
-      .where(eq(floors.id, id))
-      .returning();
-    return updated || undefined;
-  }
-
-  async deleteFloor(id: number): Promise<void> {
-    await db.delete(floors).where(eq(floors.id, id));
-  }
-
-  // Section methods
-  async getSectionsByFloorId(floorId: number): Promise<Section[]> {
-    return await db.select().from(sections).where(eq(sections.floorId, floorId));
-  }
-
-  async getSectionById(id: number): Promise<Section | undefined> {
-    const [section] = await db.select().from(sections).where(eq(sections.id, id));
-    return section || undefined;
-  }
-
-  async getSectionByPlaceId(placeId: string): Promise<Section | undefined> {
-    const [section] = await db.select().from(sections).where(eq(sections.placeId, placeId));
-    return section || undefined;
-  }
-
-  async createSection(insertSection: InsertSection): Promise<Section> {
-    const [section] = await db
-      .insert(sections)
-      .values(insertSection)
-      .returning();
-    return section;
-  }
-
-  async updateSection(id: number, updateData: Partial<InsertSection>): Promise<Section | undefined> {
-    const [updated] = await db
-      .update(sections)
-      .set(updateData)
-      .where(eq(sections.id, id))
-      .returning();
-    return updated || undefined;
-  }
-
-  async deleteSection(id: number): Promise<void> {
-    await db.delete(sections).where(eq(sections.id, id));
-  }
-
-  // Desk methods
-  async getDesksBySectionId(sectionId: number): Promise<Desk[]> {
-    return await db.select().from(desks).where(eq(desks.sectionId, sectionId));
-  }
-
-  async getDeskById(id: number): Promise<Desk | undefined> {
-    const [desk] = await db.select().from(desks).where(eq(desks.id, id));
-    return desk || undefined;
-  }
-
-  async getDeskByPlaceId(placeId: string): Promise<Desk | undefined> {
-    const [desk] = await db.select().from(desks).where(eq(desks.placeId, placeId));
-    return desk || undefined;
-  }
-
-  async createDesk(insertDesk: InsertDesk): Promise<Desk> {
-    const [desk] = await db
-      .insert(desks)
-      .values(insertDesk)
-      .returning();
-    return desk;
-  }
-
-  async updateDesk(id: number, updateData: Partial<InsertDesk>): Promise<Desk | undefined> {
-    const [updated] = await db
-      .update(desks)
-      .set(updateData)
-      .where(eq(desks.id, id))
-      .returning();
-    return updated || undefined;
-  }
-
-  async deleteDesk(id: number): Promise<void> {
-    await db.delete(desks).where(eq(desks.id, id));
-  }
-
-  // Room methods
-  async getRoomsBySectionId(sectionId: number): Promise<Room[]> {
-    return await db.select().from(rooms).where(eq(rooms.sectionId, sectionId));
-  }
-
-  async getRoomsByFloorId(floorId: number): Promise<Room[]> {
-    return await db.select().from(rooms).where(eq(rooms.floorId, floorId));
-  }
-
-  async getRoomById(id: number): Promise<Room | undefined> {
-    const [room] = await db.select().from(rooms).where(eq(rooms.id, id));
-    return room || undefined;
-  }
-
-  async getRoomByPlaceId(placeId: string): Promise<Room | undefined> {
-    const [room] = await db.select().from(rooms).where(eq(rooms.placeId, placeId));
-    return room || undefined;
-  }
-
-  async createRoom(insertRoom: InsertRoom): Promise<Room> {
-    const [room] = await db
-      .insert(rooms)
-      .values(insertRoom)
-      .returning();
-    return room;
-  }
-
-  async updateRoom(id: number, updateData: Partial<InsertRoom>): Promise<Room | undefined> {
-    const [updated] = await db
-      .update(rooms)
-      .set(updateData)
-      .where(eq(rooms.id, id))
-      .returning();
-    return updated || undefined;
-  }
-
-  async deleteRoom(id: number): Promise<void> {
-    await db.delete(rooms).where(eq(rooms.id, id));
-  }
-
-  // Module status methods
-  async getAllModuleStatus(): Promise<ModuleStatus[]> {
-    return await db.select().from(moduleStatus);
-  }
-
-  async getModuleStatus(moduleName: string): Promise<ModuleStatus | undefined> {
-    const [status] = await db.select().from(moduleStatus).where(eq(moduleStatus.moduleName, moduleName));
-    return status || undefined;
-  }
-
-  async upsertModuleStatus(insertModuleStatus: InsertModuleStatus): Promise<ModuleStatus> {
-    const [status] = await db
-      .insert(moduleStatus)
-      .values(insertModuleStatus)
-      .onConflictDoUpdate({
-        target: moduleStatus.moduleName,
-        set: {
-          status: insertModuleStatus.status,
-          version: insertModuleStatus.version || null,
-          lastChecked: new Date(),
-        },
-      })
-      .returning();
-    return status;
-  }
-
-  // Connection status methods
-  async getAllConnectionStatus(): Promise<ConnectionStatus[]> {
-    return await db.select().from(connectionStatus);
-  }
-
-  async getConnectionStatus(serviceName: string): Promise<ConnectionStatus | undefined> {
-    const [status] = await db.select().from(connectionStatus).where(eq(connectionStatus.serviceName, serviceName));
-    return status || undefined;
-  }
-
-  async upsertConnectionStatus(insertConnectionStatus: InsertConnectionStatus): Promise<ConnectionStatus> {
-    const [status] = await db
-      .insert(connectionStatus)
-      .values(insertConnectionStatus)
-      .onConflictDoUpdate({
-        target: connectionStatus.serviceName,
-        set: {
-          status: insertConnectionStatus.status,
-          lastChecked: new Date(),
-        },
-      })
-      .returning();
-    return status;
-  }
-
-  // Command history methods
-  async getCommandHistory(limit: number = 50): Promise<CommandHistory[]> {
-    return await db.select().from(commandHistory)
-      .orderBy(commandHistory.executedAt)
-      .limit(limit);
-  }
-
-  async addCommandHistory(insertCommandHistory: InsertCommandHistory): Promise<CommandHistory> {
-    const [history] = await db
-      .insert(commandHistory)
-      .values({
-        ...insertCommandHistory,
-        executedAt: insertCommandHistory.executedAt || new Date(),
-      })
-      .returning();
-    return history;
-  }
-
-  async clearCommandHistory(): Promise<void> {
-    await db.delete(commandHistory);
-  }
-}
 
 // Use MemStorage - perfect for demo mode, live mode uses PowerShell API directly
 export const storage = new MemStorage();
