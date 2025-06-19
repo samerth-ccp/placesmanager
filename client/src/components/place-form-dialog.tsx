@@ -481,14 +481,14 @@ export function PlaceFormDialog({
       <div>
         <Label htmlFor="sectionId">Section</Label>
         <Select 
-          value={form.watch("sectionId")?.toString() || ""}
-          onValueChange={(value) => form.setValue("sectionId", value ? parseInt(value) : undefined)}
+          value={form.watch("sectionId")?.toString() || "none"}
+          onValueChange={(value) => form.setValue("sectionId", value === "none" ? undefined : parseInt(value))}
         >
           <SelectTrigger>
             <SelectValue placeholder="Select section (optional)" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">No Section</SelectItem>
+            <SelectItem value="none">No Section</SelectItem>
             {parentData?.sections?.filter((section: any) => 
               !form.watch("floorId") || section.floorId === form.watch("floorId")
             ).map((section: any) => (
