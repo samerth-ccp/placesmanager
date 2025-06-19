@@ -23,16 +23,21 @@ import {
   Plus,
   Edit,
   Map,
+  Trash2,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { HierarchyNode } from "@/lib/types";
+import { PlaceFormDialog } from "./place-form-dialog";
 
 export function PlacesTree() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogType, setDialogType] = useState<"building" | "floor" | "section" | "desk" | "room">("building");
+  const [editData, setEditData] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 

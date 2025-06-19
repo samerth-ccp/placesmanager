@@ -19,14 +19,17 @@ export interface IStorage {
   getBuildingByPlaceId(placeId: string): Promise<Building | undefined>;
   createBuilding(building: InsertBuilding): Promise<Building>;
   updateBuilding(id: number, building: Partial<InsertBuilding>): Promise<Building | undefined>;
+  deleteBuilding(id: number): Promise<void>;
 
   // Floor methods
   getFloorsByBuildingId(buildingId: number): Promise<Floor[]>;
+  getFloorById(id: number): Promise<Floor | undefined>;
   getFloorByPlaceId(placeId: string): Promise<Floor | undefined>;
   createFloor(floor: InsertFloor): Promise<Floor>;
 
   // Section methods
   getSectionsByFloorId(floorId: number): Promise<Section[]>;
+  getSectionById(id: number): Promise<Section | undefined>;
   getSectionByPlaceId(placeId: string): Promise<Section | undefined>;
   createSection(section: InsertSection): Promise<Section>;
 
@@ -307,9 +310,17 @@ export class MemStorage implements IStorage {
     return updated;
   }
 
+  async deleteBuilding(id: number): Promise<void> {
+    this.buildings.delete(id);
+  }
+
   // Floor methods
   async getFloorsByBuildingId(buildingId: number): Promise<Floor[]> {
     return Array.from(this.floors.values()).filter(floor => floor.buildingId === buildingId);
+  }
+
+  async getFloorById(id: number): Promise<Floor | undefined> {
+    return this.floors.get(id);
   }
 
   async getFloorByPlaceId(placeId: string): Promise<Floor | undefined> {
@@ -335,6 +346,10 @@ export class MemStorage implements IStorage {
   // Section methods
   async getSectionsByFloorId(floorId: number): Promise<Section[]> {
     return Array.from(this.sections.values()).filter(section => section.floorId === floorId);
+  }
+
+  async getSectionById(id: number): Promise<Section | undefined> {
+    return this.sections.get(id);
   }
 
   async getSectionByPlaceId(placeId: string): Promise<Section | undefined> {
