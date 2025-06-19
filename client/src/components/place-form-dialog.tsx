@@ -151,10 +151,11 @@ export function PlaceFormDialog({
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/places/hierarchy'] });
+      // Invalidate all place-related queries to refresh data immediately
+      queryClient.invalidateQueries({ queryKey: ['/api/places'] });
       toast({
-        title: `${type.charAt(0).toUpperCase() + type.slice(1)} ${editData ? 'Updated' : 'Created'}`,
-        description: `${type.charAt(0).toUpperCase() + type.slice(1)} has been ${editData ? 'updated' : 'created'} successfully`,
+        title: "Success",
+        description: `${type.charAt(0).toUpperCase() + type.slice(1)} ${editData ? 'updated' : 'created'} successfully`,
       });
       onOpenChange(false);
       form.reset();

@@ -573,18 +573,40 @@ export class MemStorage implements IStorage {
 
 // Database storage implementation
 export class DatabaseStorage implements IStorage {
+  private db: any;
+  private eq: any;
+
+  constructor() {
+    // Dynamic imports to avoid circular dependencies
+    this.initializeDb();
+  }
+
+  private async initializeDb() {
+    try {
+      const dbModule = await import("./db");
+      const drizzleOrm = await import("drizzle-orm");
+      this.db = dbModule.db;
+      this.eq = drizzleOrm.eq;
+    } catch (error) {
+      console.error("Failed to initialize database:", error);
+    }
+  }
+
   async getUser(id: number): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
+    if (!this.db || !this.eq) await this.initializeDb();
+    const [user] = await this.db.select().from(users).where(this.eq(users.id, id));
     return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
+    if (!this.db || !this.eq) await this.initializeDb();
+    const [user] = await this.db.select().from(users).where(this.eq(users.username, username));
     return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db
+    if (!this.db || !this.eq) await this.initializeDb();
+    const [user] = await this.db
       .insert(users)
       .values(insertUser)
       .returning();
@@ -849,4 +871,5 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-export const storage = new DatabaseStorage();
+// Use MemStorage for now until database is properly set up
+export const storage = new MemStorage();
