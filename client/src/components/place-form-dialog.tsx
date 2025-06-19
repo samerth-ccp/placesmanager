@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -111,6 +111,17 @@ export function PlaceFormDialog({
   }, [editData]);
 
   function getDefaultValues() {
+    if (editData) {
+      // Return edit data with proper field mapping for prepopulation
+      return {
+        ...editData,
+        // Ensure proper ID mapping for dropdowns
+        buildingId: editData.buildingId || parentData?.buildings?.[0]?.id || 0,
+        floorId: editData.floorId || parentData?.floors?.[0]?.id || 0,
+        sectionId: editData.sectionId || parentData?.sections?.[0]?.id || 0,
+      };
+    }
+
     switch (type) {
       case "building":
         return { name: "", description: "", countryOrRegion: "", state: "", city: "", street: "", postalCode: "", phone: "" };

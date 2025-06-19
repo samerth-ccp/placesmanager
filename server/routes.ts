@@ -757,7 +757,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await powerShellService.updatePlace(floor.placeId, floorData);
       
       if (result.exitCode === 0) {
-        const updated = await storage.updateFloor ? await storage.updateFloor(id, floorData) : null;
+        const updated = await storage.updateFloor(id, floorData);
         
         await storage.addCommandHistory({
           command: `Set-Place -Identity "${floor.placeId}" -DisplayName "${floorData.name || floor.name}"`,
@@ -789,7 +789,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await powerShellService.updatePlace(section.placeId, sectionData);
       
       if (result.exitCode === 0) {
-        const updated = await storage.updateSection ? await storage.updateSection(id, sectionData) : null;
+        const updated = await storage.updateSection(id, sectionData);
         
         await storage.addCommandHistory({
           command: `Set-Place -Identity "${section.placeId}" -DisplayName "${sectionData.name || section.name}"`,
@@ -821,7 +821,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await powerShellService.updatePlace(desk.placeId, deskData);
       
       if (result.exitCode === 0) {
-        const updated = await storage.updateDesk ? await storage.updateDesk(id, deskData) : null;
+        const updated = await storage.updateDesk(id, deskData);
         
         await storage.addCommandHistory({
           command: `Set-Place -Identity "${desk.placeId}" -DisplayName "${deskData.name || desk.name}"`,
@@ -853,7 +853,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await powerShellService.updatePlace(room.placeId, roomData);
       
       if (result.exitCode === 0) {
-        const updated = await storage.updateRoom ? await storage.updateRoom(id, roomData) : null;
+        const updated = await storage.updateRoom(id, roomData);
         
         await storage.addCommandHistory({
           command: `Set-Place -Identity "${room.placeId}" -DisplayName "${roomData.name || room.name}"`,
