@@ -44,12 +44,15 @@ const floorSchema = z.object({
 const sectionSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
+  buildingId: z.number().min(1, "Building is required"),
   floorId: z.number().min(1, "Floor is required"),
 });
 
 const deskSchema = z.object({
   name: z.string().min(1, "Name is required"),
   type: z.enum(["Desk", "Workspace"]),
+  buildingId: z.number().min(1, "Building is required"),
+  floorId: z.number().min(1, "Floor is required"),
   sectionId: z.number().min(1, "Section is required"),
   emailAddress: z.string().email().optional().or(z.literal("")),
   capacity: z.number().min(1).optional(),
@@ -59,6 +62,7 @@ const deskSchema = z.object({
 const roomSchema = z.object({
   name: z.string().min(1, "Name is required"),
   type: z.literal("Room"),
+  buildingId: z.number().min(1, "Building is required"),
   floorId: z.number().min(1, "Floor is required"),
   sectionId: z.number().optional(),
   emailAddress: z.string().email().optional().or(z.literal("")),
@@ -128,11 +132,11 @@ export function PlaceFormDialog({
       case "floor":
         return { name: "", description: "", buildingId: 0 };
       case "section":
-        return { name: "", description: "", floorId: 0 };
+        return { name: "", description: "", buildingId: 0, floorId: 0 };
       case "desk":
-        return { name: "", type: "Desk", sectionId: 0, emailAddress: "", capacity: 1, isBookable: true };
+        return { name: "", type: "Desk", buildingId: 0, floorId: 0, sectionId: 0, emailAddress: "", capacity: 1, isBookable: true };
       case "room":
-        return { name: "", type: "Room", floorId: 0, emailAddress: "", capacity: 1, isBookable: true };
+        return { name: "", type: "Room", buildingId: 0, floorId: 0, emailAddress: "", capacity: 1, isBookable: true };
       default:
         return {};
     }
