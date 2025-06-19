@@ -511,7 +511,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Log command
         await storage.addCommandHistory({
-          command: `New-Place -Type Building -Name "${buildingData.name}"`,
+          command: `New-Place -DisplayName "${buildingData.name}" -Type Building`,
           output: result.output,
           status: 'success',
         });
@@ -556,7 +556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const floor = await storage.createFloor(floorData);
         
         await storage.addCommandHistory({
-          command: `New-Place -Type Floor -Name "${floorData.name}" -ParentId "${building.placeId}"`,
+          command: `New-Place -DisplayName "${floorData.name}" -Type Floor -ParentId "${building.placeId}"`,
           output: result.output,
           status: 'success',
         });
@@ -597,7 +597,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const section = await storage.createSection(sectionData);
         
         await storage.addCommandHistory({
-          command: `New-Place -Type Section -Name "${sectionData.name}" -ParentId "${floor.placeId}"`,
+          command: `New-Place -DisplayName "${sectionData.name}" -Type Section -ParentId "${floor.placeId}"`,
           output: result.output,
           status: 'success',
         });
@@ -644,7 +644,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const desk = await storage.createDesk(deskData);
         
         await storage.addCommandHistory({
-          command: `New-Place -Type Desk -Name "${deskData.name}" -ParentId "${section.placeId}"`,
+          command: `New-Place -DisplayName "${deskData.name}" -Type ${deskData.type} -ParentId "${section.placeId}" -EmailAddress "${deskData.emailAddress}" -Capacity ${deskData.capacity} -IsBookable $${deskData.isBookable}`,
           output: result.output,
           status: 'success',
         });
@@ -694,7 +694,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const room = await storage.createRoom(roomData);
         
         await storage.addCommandHistory({
-          command: `New-Place -Type Room -Name "${roomData.name}" -ParentId "${parentId || floor.placeId}"`,
+          command: `New-Place -DisplayName "${roomData.name}" -Type Room -ParentId "${parentId || floor.placeId}" -EmailAddress "${roomData.emailAddress}" -Capacity ${roomData.capacity} -IsBookable $${roomData.isBookable}`,
           output: result.output,
           status: 'success',
         });
@@ -713,22 +713,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put('/api/places/building/:id', async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const buildingData = insertBuildingSchema.partial().parse(req.body);
+      const building = await storage.getBuildingById(id);
       
-      const updated = await storage.updateBuilding(id, buildingData);
-      if (!updated) {
+      if (!building) {
         return res.status(404).json({ message: 'Building not found' });
       }
 
-      await storage.addCommandHistory({
-        command: `Update-Place -Type Building -Id ${id}`,
-        output: 'Building updated successfully',
-        status: 'success',
-      });
+      const buildingData = insertBuildingSchema.partial().parse(req.body);
+      
+      // Update via PowerShell
+      const result = await powerShellService.updatePlace(building.placeId, buildingData);
+      
+      if (result.exitCode === 0) {
+        const updated = await storage.updateBuilding(id, buildingData);
+        
+        await storage.addCommandHistory({
+          command: `Set-Place -Identity "${building.placeId}" -DisplayName "${buildingData.name || building.name}"`,
+          output: result.output,
+          status: 'success',
+        });
 
-      res.json({ building: updated });
+        res.json({ building: updated, result });
+      } else {
+        res.status(500).json({ message: 'Failed to update building', error: result.error });
+      }
     } catch (error) {
-      res.status(400).json({ message: 'Invalid building data' });
+      console.error('Building update error:', error);
+      res.status(400).json({ message: 'Invalid building data', error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
@@ -742,19 +753,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Building not found' });
       }
 
-      // In a real implementation, you'd call PowerShell to delete from Microsoft 365
-      // For now, we'll just remove from local storage
-      await storage.deleteBuilding ? await storage.deleteBuilding(id) : null;
+      // Delete via PowerShell
+      const result = await powerShellService.deletePlace(building.placeId);
+      
+      if (result.exitCode === 0) {
+        await storage.deleteBuilding(id);
 
-      await storage.addCommandHistory({
-        command: `Remove-Place -PlaceId "${building.placeId}"`,
-        output: 'Building deleted successfully',
-        status: 'success',
-      });
+        await storage.addCommandHistory({
+          command: `Remove-Place -Identity "${building.placeId}" -Confirm:$false`,
+          output: result.output,
+          status: 'success',
+        });
 
-      res.json({ message: 'Building deleted successfully' });
+        res.json({ message: 'Building deleted successfully', result });
+      } else {
+        res.status(500).json({ message: 'Failed to delete building', error: result.error });
+      }
     } catch (error) {
-      res.status(500).json({ message: 'Failed to delete building' });
+      console.error('Building deletion error:', error);
+      res.status(500).json({ message: 'Failed to delete building', error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
