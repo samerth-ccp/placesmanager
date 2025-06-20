@@ -346,7 +346,7 @@ export class MemStorage implements IStorage {
     const floor: Floor = {
       id,
       placeId: insertFloor.placeId,
-      buildingId: insertFloor.buildingId ?? null,
+      buildingId: insertFloor.buildingId,
       parentPlaceId: insertFloor.parentPlaceId,
       name: insertFloor.name,
       description: insertFloor.description ?? null,
@@ -388,7 +388,7 @@ export class MemStorage implements IStorage {
     const section: Section = {
       id,
       placeId: insertSection.placeId,
-      floorId: insertSection.floorId ?? null,
+      floorId: insertSection.floorId,
       parentPlaceId: insertSection.parentPlaceId,
       name: insertSection.name,
       description: insertSection.description ?? null,

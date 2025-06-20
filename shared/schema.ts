@@ -20,7 +20,7 @@ export const buildings = pgTable("buildings", {
 export const floors = pgTable("floors", {
   id: serial("id").primaryKey(),
   placeId: text("place_id").notNull().unique(),
-  buildingId: integer("building_id").references(() => buildings.id),
+  buildingId: integer("building_id").references(() => buildings.id).notNull(),
   parentPlaceId: text("parent_place_id").notNull(),
   name: text("name").notNull(),
   description: text("description"),
@@ -31,7 +31,7 @@ export const floors = pgTable("floors", {
 export const sections = pgTable("sections", {
   id: serial("id").primaryKey(),
   placeId: text("place_id").notNull().unique(),
-  floorId: integer("floor_id").references(() => floors.id),
+  floorId: integer("floor_id").references(() => floors.id).notNull(),
   parentPlaceId: text("parent_place_id").notNull(),
   name: text("name").notNull(),
   description: text("description"),

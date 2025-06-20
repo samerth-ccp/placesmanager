@@ -194,13 +194,22 @@ PlaceId                               DisplayName       Description             
     }
 
     if (command.includes('Get-PlaceV3') && command.includes('Section')) {
+      const demoPlaces = [
+        {
+          PlaceId: '53f03757-e1f3-632d-d945-a8fbde6f9ha7',
+          DisplayName: 'Foyer',
+          Description: 'Customer Service',
+          ParentId: '31d81535-c9f1-410b-a723-bf0a5c7f7485'
+        },
+        {
+          PlaceId: '64g14868-f2g4-743e-ea56-b9gcef7g0ib8',
+          DisplayName: 'Offices',
+          Description: 'Office Spaces',
+          ParentId: '31d81535-c9f1-410b-a723-bf0a5c7f7485'
+        }
+      ];
       return {
-        output: `
-PlaceId                               DisplayName       Description                    ParentId
--------                               -----------       -----------                    --------
-53f03757-e1f3-632d-d945-a8fbde6f9ha7 Foyer             Customer Service               31d81535-c9f1-410b-a723-bf0a5c7f7485
-64g14868-f2g4-743e-ea56-b9gcef7g0ib8 Offices           Office Spaces                 31d81535-c9f1-410b-a723-bf0a5c7f7485
-`.trim(),
+        output: demoPlaces.map(p => `${p.DisplayName}: ${p.PlaceId}`).join('\n'),
         exitCode: 0,
         duration,
       };
@@ -228,8 +237,14 @@ PlaceId                               DisplayName       Type       ParentId     
     }
 
     if (command.includes('New-Place')) {
+      const placeId = this.generateGuid();
+      const nameMatch = command.match(/-DisplayName\s+"([^"]+)"/);
+      const name = nameMatch ? nameMatch[1] : 'New Place';
+      const typeMatch = command.match(/-Type\s+(\w+)/);
+      const type = typeMatch ? typeMatch[1] : 'Place';
+      
       return {
-        output: `Successfully created new place with ID: ${this.generateGuid()}`,
+        output: `${type} "${name}" created successfully with PlaceId: ${placeId}`,
         exitCode: 0,
         duration,
       };
@@ -444,153 +459,108 @@ Deploy to Windows for full PowerShell functionality.
     parentId?: string,
     additionalParams?: Record<string, string>
   ): Promise<PowerShellResult> {
-    // Use actual Microsoft Places PowerShell cmdlets
-    let command = '';
+    let command = `New-Place -Type ${type} -DisplayName "${name}"`;
     
-    switch (type.toLowerCase()) {
-      case 'building':
-        command = this.buildCreateBuildingCommand(name, description, additionalParams);
-        break;
-      case 'floor':
-        command = this.buildCreateFloorCommand(name, description, parentId, additionalParams);
-        break;
-      case 'section':
-        command = this.buildCreateSectionCommand(name, description, parentId, additionalParams);
-        break;
-      case 'desk':
-        command = this.buildCreateWorkspaceCommand(name, parentId, additionalParams);
-        break;
-      case 'room':
-        command = this.buildCreateRoomCommand(name, parentId, additionalParams);
-        break;
-      default:
-        command = `New-Place -DisplayName "${name}" -Type ${type}`;
+    if (description) {
+      command += ` -Description "${description}"`;
+    }
+    
+    if (parentId) {
+      command += ` -ParentId "${parentId}"`;
     }
 
+    if (additionalParams) {
+      Object.entries(additionalParams).forEach(([key, value]) => {
+        command += ` -${key} "${value}"`;
+      });
+    }
+    
+    console.log(`Executing createPlace command: ${command}`);
     return this.executeCommand(command);
   }
 
-  private buildCreateBuildingCommand(name: string, description?: string, params?: Record<string, string>): string {
-    const cmdParts = [`New-Place -DisplayName "${name}" -Type Building`];
+  async createRoom(
+    name: string,
+    description: string,
+    parentId: string,
+    emailAddress?: string,
+    capacity?: number,
+    isBookable: boolean = true
+  ): Promise<PowerShellResult> {
+    // Demo mode for non-Windows environments
+    if (this.isInDemoMode()) {
+      const duration = 1000 + Math.random() * 2000; // Simulate execution time
+      return {
+        output: `Room "${name}" created successfully with PlaceId: ${this.generateGuid()}`,
+        exitCode: 0,
+        duration,
+      };
+    }
+
+    if (!emailAddress) {
+      return {
+        output: '',
+        error: 'Email address is required to create or associate a room.',
+        exitCode: 1,
+        duration: 0
+      }
+    }
+
+    // Step 1: Check if the mailbox already exists
+    const checkMailboxCmd = `Get-Mailbox -Identity "${emailAddress}"`;
+    console.log(`Checking if mailbox exists: ${checkMailboxCmd}`);
+    const getMailboxResult = await this.executeCommand(checkMailboxCmd, 60000);
+    let totalDuration = getMailboxResult.duration;
+    let finalOutput = '';
+
+    if (getMailboxResult.exitCode !== 0) {
+      // Mailbox does not exist, so create it
+      console.log(`Mailbox ${emailAddress} not found. Creating new mailbox.`);
+      let createMailboxCmd = `New-Mailbox -Room -Name "${name}" -PrimarySmtpAddress "${emailAddress}"`;
+      if (capacity) {
+        createMailboxCmd += ` -ResourceCapacity ${capacity}`;
+      }
+      
+      console.log(`Executing room creation command: ${createMailboxCmd}`);
+      const createMailboxResult = await this.executeCommand(createMailboxCmd, 120000);
+      totalDuration += createMailboxResult.duration;
+      finalOutput += createMailboxResult.output;
+      
+      if (createMailboxResult.exitCode !== 0) {
+        return {
+          ...createMailboxResult,
+          error: `Failed to create room mailbox: ${createMailboxResult.error}`,
+          duration: totalDuration,
+        };
+      }
+    } else {
+      console.log(`Mailbox ${emailAddress} already exists. Skipping creation.`);
+      finalOutput += `Mailbox ${emailAddress} already exists.`;
+    }
+
+    // Step 2: Set the place properties to parent it to the section
+    const setPlaceCmd = `Set-PlaceV3 -Identity "${emailAddress}" -ParentId "${parentId}"`;
+    console.log(`Executing Set-PlaceV3 command: ${setPlaceCmd}`);
+    const setPlaceResult = await this.executeCommand(setPlaceCmd, 120000);
+    totalDuration += setPlaceResult.duration;
+    finalOutput += `\n${setPlaceResult.output}`;
+
+    if (setPlaceResult.exitCode !== 0) {
+      return {
+        ...setPlaceResult,
+        error: `Mailbox processed, but failed to parent room to section: ${setPlaceResult.error}`,
+        duration: totalDuration,
+        output: finalOutput
+      };
+    }
     
-    if (description) {
-      cmdParts.push(`-Description "${description}"`);
-    }
-
-    if (params?.CountryOrRegion) {
-      cmdParts.push(`-CountryOrRegion "${params.CountryOrRegion}"`);
-    }
-    if (params?.State) {
-      cmdParts.push(`-State "${params.State}"`);
-    }
-    if (params?.City) {
-      cmdParts.push(`-City "${params.City}"`);
-    }
-    if (params?.Street) {
-      cmdParts.push(`-Street "${params.Street}"`);
-    }
-    if (params?.PostalCode) {
-      cmdParts.push(`-PostalCode "${params.PostalCode}"`);
-    }
-
-    return cmdParts.join(' ');
-  }
-
-  private buildCreateFloorCommand(name: string, description?: string, parentId?: string, params?: Record<string, string>): string {
-    const cmdParts = [`New-Place -DisplayName "${name}" -Type Floor`];
-    
-    if (description) {
-      cmdParts.push(`-Description "${description}"`);
-    }
-    if (parentId) {
-      cmdParts.push(`-ParentId "${parentId}"`);
-    }
-
-    return cmdParts.join(' ');
-  }
-
-  private buildCreateSectionCommand(name: string, description?: string, parentId?: string, params?: Record<string, string>): string {
-    const cmdParts = [`New-Place -DisplayName "${name}" -Type Section`];
-    
-    if (description) {
-      cmdParts.push(`-Description "${description}"`);
-    }
-    if (parentId) {
-      cmdParts.push(`-ParentId "${parentId}"`);
-    }
-
-    return cmdParts.join(' ');
-  }
-
-  private buildCreateWorkspaceCommand(name: string, parentId?: string, params?: Record<string, string>): string {
-    const workspaceType = params?.Type === 'Workspace' ? 'Workspace' : 'Desk';
-    const cmdParts = [`New-Place -DisplayName "${name}" -Type ${workspaceType}`];
-    
-    if (parentId) {
-      cmdParts.push(`-ParentId "${parentId}"`);
-    }
-    if (params?.EmailAddress) {
-      cmdParts.push(`-EmailAddress "${params.EmailAddress}"`);
-    }
-    if (params?.Capacity) {
-      cmdParts.push(`-Capacity ${params.Capacity}`);
-    }
-    if (params?.IsBookable === 'true') {
-      cmdParts.push(`-IsBookable $true`);
-    } else if (params?.IsBookable === 'false') {
-      cmdParts.push(`-IsBookable $false`);
-    }
-
-    return cmdParts.join(' ');
-  }
-
-  private buildCreateRoomCommand(name: string, parentId?: string, params?: Record<string, string>): string {
-    const cmdParts = [`New-Place -DisplayName "${name}" -Type Room`];
-    
-    if (parentId) {
-      cmdParts.push(`-ParentId "${parentId}"`);
-    }
-    if (params?.EmailAddress) {
-      cmdParts.push(`-EmailAddress "${params.EmailAddress}"`);
-    }
-    if (params?.Capacity) {
-      cmdParts.push(`-Capacity ${params.Capacity}`);
-    }
-    if (params?.IsBookable === 'true') {
-      cmdParts.push(`-IsBookable $true`);
-    } else if (params?.IsBookable === 'false') {
-      cmdParts.push(`-IsBookable $false`);
-    }
-
-    return cmdParts.join(' ');
-  }
-
-  async updatePlace(placeId: string, updates: Record<string, any>): Promise<PowerShellResult> {
-    const cmdParts = [`Set-Place -Identity "${placeId}"`];
-    
-    if (updates.displayName || updates.name) {
-      cmdParts.push(`-DisplayName "${updates.displayName || updates.name}"`);
-    }
-    if (updates.description) {
-      cmdParts.push(`-Description "${updates.description}"`);
-    }
-    if (updates.emailAddress) {
-      cmdParts.push(`-EmailAddress "${updates.emailAddress}"`);
-    }
-    if (updates.capacity) {
-      cmdParts.push(`-Capacity ${updates.capacity}`);
-    }
-    if (updates.isBookable !== undefined) {
-      cmdParts.push(`-IsBookable $${updates.isBookable ? 'true' : 'false'}`);
-    }
-
-    const command = cmdParts.join(' ');
-    return this.executeCommand(command);
-  }
-
-  async deletePlace(placeId: string): Promise<PowerShellResult> {
-    const command = `Remove-Place -Identity "${placeId}" -Confirm:$false`;
-    return this.executeCommand(command);
+    // Success
+    return {
+      output: finalOutput,
+      error: undefined,
+      exitCode: 0,
+      duration: totalDuration
+    };
   }
 
   private buildPlacesHierarchy(places: any[]): any[] {
@@ -779,6 +749,30 @@ Deploy to Windows for full PowerShell functionality.
             ParentId: '64g14868-f2g4-743e-ea56-b9gcef7g0ib8',
             EmailAddress: 'conferencea@thoughtswin.com',
             Capacity: 8,
+            IsBookable: true
+          }
+        ];
+        return this.buildPlacesHierarchy(demoPlaces);
+      }
+
+      if (output.includes('Room')) {
+        const demoPlaces = [
+          {
+            PlaceId: '86i36080-h4i6-965g-gc78-dbiegf9i2kd0',
+            DisplayName: 'Conference-A',
+            Type: 'Room',
+            ParentId: '53f03757-e1f3-632d-d945-a8fbde6f9ha7',
+            EmailAddress: 'conferencea@thoughtswin.com',
+            Capacity: 8,
+            IsBookable: true
+          },
+          {
+            PlaceId: '97j47191-i5j7-076h-hd89-ecjfhg0j3le1',
+            DisplayName: 'Meeting-Room-B',
+            Type: 'Room',
+            ParentId: '64g14868-f2g4-743e-ea56-b9gcef7g0ib8',
+            EmailAddress: 'meetingroomb@thoughtswin.com',
+            Capacity: 12,
             IsBookable: true
           }
         ];

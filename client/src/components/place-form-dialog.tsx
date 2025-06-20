@@ -61,11 +61,11 @@ const deskSchema = z.object({
 
 const roomSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  type: z.literal("Room"),
+  type: z.literal("Room").optional().default("Room"),
   buildingId: z.number().min(1, "Building is required"),
   floorId: z.number().min(1, "Floor is required"),
-  sectionId: z.number().optional(),
-  emailAddress: z.string().email().optional().or(z.literal("")),
+  sectionId: z.number().min(1, "Section is required"),
+  emailAddress: z.string().email("A valid email address is required."),
   capacity: z.number().min(1).optional(),
   isBookable: z.boolean().default(true),
 });
@@ -136,7 +136,7 @@ export function PlaceFormDialog({
       case "desk":
         return { name: "", type: "Desk", buildingId: 0, floorId: 0, sectionId: 0, emailAddress: "", capacity: 1, isBookable: true };
       case "room":
-        return { name: "", type: "Room", buildingId: 0, floorId: 0, emailAddress: "", capacity: 1, isBookable: true };
+        return { name: "", type: "Room", buildingId: 0, floorId: 0, sectionId: 0, emailAddress: "", capacity: 1, isBookable: true };
       default:
         return {};
     }
@@ -180,8 +180,8 @@ export function PlaceFormDialog({
         <div>
           <Label htmlFor="name">Name *</Label>
           <Input {...form.register("name")} placeholder="Building name" />
-          {form.formState.errors.name && (
-            <p className="text-sm text-red-500 mt-1">{form.formState.errors.name.message}</p>
+          {form.formState.errors.name?.message && (
+            <p className="text-sm text-red-500 mt-1">{String(form.formState.errors.name.message)}</p>
           )}
         </div>
         <div>
@@ -236,15 +236,15 @@ export function PlaceFormDialog({
             ))}
           </SelectContent>
         </Select>
-        {form.formState.errors.buildingId && (
-          <p className="text-sm text-red-500 mt-1">{form.formState.errors.buildingId.message}</p>
+        {form.formState.errors.buildingId?.message && (
+          <p className="text-sm text-red-500 mt-1">{String(form.formState.errors.buildingId.message)}</p>
         )}
       </div>
       <div>
         <Label htmlFor="name">Name *</Label>
         <Input {...form.register("name")} placeholder="Floor name (e.g., Ground Floor, 2nd Floor)" />
-        {form.formState.errors.name && (
-          <p className="text-sm text-red-500 mt-1">{form.formState.errors.name.message}</p>
+        {form.formState.errors.name?.message && (
+          <p className="text-sm text-red-500 mt-1">{String(form.formState.errors.name.message)}</p>
         )}
       </div>
       <div>
@@ -266,15 +266,15 @@ export function PlaceFormDialog({
             <SelectValue placeholder="Select building" />
           </SelectTrigger>
           <SelectContent>
-            {parentData?.buildings?.map((building) => (
+            {parentData?.buildings?.map((building: any) => (
               <SelectItem key={building.id} value={building.id.toString()}>
                 {building.name}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        {form.formState.errors.buildingId && (
-          <p className="text-sm text-red-500 mt-1">{form.formState.errors.buildingId.message}</p>
+        {form.formState.errors.buildingId?.message && (
+          <p className="text-sm text-red-500 mt-1">{String(form.formState.errors.buildingId.message)}</p>
         )}
       </div>
       <div>
@@ -296,15 +296,15 @@ export function PlaceFormDialog({
             ))}
           </SelectContent>
         </Select>
-        {form.formState.errors.floorId && (
-          <p className="text-sm text-red-500 mt-1">{form.formState.errors.floorId.message}</p>
+        {form.formState.errors.floorId?.message && (
+          <p className="text-sm text-red-500 mt-1">{String(form.formState.errors.floorId.message)}</p>
         )}
       </div>
       <div>
         <Label htmlFor="name">Name *</Label>
         <Input {...form.register("name")} placeholder="Section name (e.g., North Wing, Reception Area)" />
-        {form.formState.errors.name && (
-          <p className="text-sm text-red-500 mt-1">{form.formState.errors.name.message}</p>
+        {form.formState.errors.name?.message && (
+          <p className="text-sm text-red-500 mt-1">{String(form.formState.errors.name.message)}</p>
         )}
       </div>
       <div>
@@ -333,8 +333,8 @@ export function PlaceFormDialog({
             ))}
           </SelectContent>
         </Select>
-        {form.formState.errors.buildingId && (
-          <p className="text-sm text-red-500 mt-1">{form.formState.errors.buildingId.message}</p>
+        {form.formState.errors.buildingId?.message && (
+          <p className="text-sm text-red-500 mt-1">{String(form.formState.errors.buildingId.message)}</p>
         )}
       </div>
       <div>
@@ -356,8 +356,8 @@ export function PlaceFormDialog({
             ))}
           </SelectContent>
         </Select>
-        {form.formState.errors.floorId && (
-          <p className="text-sm text-red-500 mt-1">{form.formState.errors.floorId.message}</p>
+        {form.formState.errors.floorId?.message && (
+          <p className="text-sm text-red-500 mt-1">{String(form.formState.errors.floorId.message)}</p>
         )}
       </div>
       <div>
@@ -379,16 +379,16 @@ export function PlaceFormDialog({
             ))}
           </SelectContent>
         </Select>
-        {form.formState.errors.sectionId && (
-          <p className="text-sm text-red-500 mt-1">{form.formState.errors.sectionId.message}</p>
+        {form.formState.errors.sectionId?.message && (
+          <p className="text-sm text-red-500 mt-1">{String(form.formState.errors.sectionId.message)}</p>
         )}
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label htmlFor="name">Name *</Label>
           <Input {...form.register("name")} placeholder="Desk name" />
-          {form.formState.errors.name && (
-            <p className="text-sm text-red-500 mt-1">{form.formState.errors.name.message}</p>
+          {form.formState.errors.name?.message && (
+            <p className="text-sm text-red-500 mt-1">{String(form.formState.errors.name.message)}</p>
           )}
         </div>
         <div>
@@ -426,8 +426,8 @@ export function PlaceFormDialog({
       <div>
         <Label htmlFor="emailAddress">Email Address</Label>
         <Input {...form.register("emailAddress")} placeholder="desk@company.com" />
-        {form.formState.errors.emailAddress && (
-          <p className="text-sm text-red-500 mt-1">{form.formState.errors.emailAddress.message}</p>
+        {form.formState.errors.emailAddress?.message && (
+          <p className="text-sm text-red-500 mt-1">{String(form.formState.errors.emailAddress.message)}</p>
         )}
       </div>
     </>
@@ -435,6 +435,7 @@ export function PlaceFormDialog({
 
   const renderRoomFields = () => (
     <>
+      <input type="hidden" {...form.register("type")} value="Room" />
       <div>
         <Label htmlFor="buildingId">Building *</Label>
         <Select 
@@ -452,8 +453,8 @@ export function PlaceFormDialog({
             ))}
           </SelectContent>
         </Select>
-        {form.formState.errors.buildingId && (
-          <p className="text-sm text-red-500 mt-1">{form.formState.errors.buildingId.message}</p>
+        {form.formState.errors.buildingId?.message && (
+          <p className="text-sm text-red-500 mt-1">{String(form.formState.errors.buildingId.message)}</p>
         )}
       </div>
       <div>
@@ -475,21 +476,20 @@ export function PlaceFormDialog({
             ))}
           </SelectContent>
         </Select>
-        {form.formState.errors.floorId && (
-          <p className="text-sm text-red-500 mt-1">{form.formState.errors.floorId.message}</p>
+        {form.formState.errors.floorId?.message && (
+          <p className="text-sm text-red-500 mt-1">{String(form.formState.errors.floorId.message)}</p>
         )}
       </div>
       <div>
-        <Label htmlFor="sectionId">Section</Label>
+        <Label htmlFor="sectionId">Section *</Label>
         <Select 
-          value={form.watch("sectionId")?.toString() || "none"}
-          onValueChange={(value) => form.setValue("sectionId", value === "none" ? undefined : parseInt(value))}
+          value={form.watch("sectionId")?.toString()}
+          onValueChange={(value) => form.setValue("sectionId", parseInt(value))}
         >
           <SelectTrigger>
-            <SelectValue placeholder="Select section (optional)" />
+            <SelectValue placeholder="Select section" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="none">No Section</SelectItem>
             {parentData?.sections?.filter((section: any) => 
               !form.watch("floorId") || section.floorId === form.watch("floorId")
             ).map((section: any) => (
@@ -499,12 +499,15 @@ export function PlaceFormDialog({
             ))}
           </SelectContent>
         </Select>
+        {form.formState.errors.sectionId?.message && (
+          <p className="text-sm text-red-500 mt-1">{String(form.formState.errors.sectionId.message)}</p>
+        )}
       </div>
       <div>
         <Label htmlFor="name">Name *</Label>
         <Input {...form.register("name")} placeholder="Room name" />
-        {form.formState.errors.name && (
-          <p className="text-sm text-red-500 mt-1">{form.formState.errors.name.message}</p>
+        {form.formState.errors.name?.message && (
+          <p className="text-sm text-red-500 mt-1">{String(form.formState.errors.name.message)}</p>
         )}
       </div>
       <div className="grid grid-cols-2 gap-4">
@@ -529,8 +532,8 @@ export function PlaceFormDialog({
       <div>
         <Label htmlFor="emailAddress">Email Address</Label>
         <Input {...form.register("emailAddress")} placeholder="room@company.com" />
-        {form.formState.errors.emailAddress && (
-          <p className="text-sm text-red-500 mt-1">{form.formState.errors.emailAddress.message}</p>
+        {form.formState.errors.emailAddress?.message && (
+          <p className="text-sm text-red-500 mt-1">{String(form.formState.errors.emailAddress.message)}</p>
         )}
       </div>
     </>

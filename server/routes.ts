@@ -9,9 +9,232 @@ import {
   insertBuildingSchema,
   insertFloorSchema,
   insertSectionSchema,
-  insertDeskSchema
+  insertDeskSchema,
+  insertRoomSchema
 } from "@shared/schema";
 import { z } from "zod";
+
+// Auto-sync function for dropdown population
+async function autoSyncPlacesData() {
+  // Check if we have any data in the local database
+  const existingBuildings = await storage.getAllBuildings();
+  
+  // If we already have data, no need to sync
+  if (existingBuildings.length > 0) {
+    console.log(`Found ${existingBuildings.length} existing buildings, skipping auto-sync`);
+    return;
+  }
+  
+  // Try to get places data from Microsoft Places
+  console.log('No existing data found, attempting to sync from Microsoft Places...');
+  
+  // Get all buildings
+  const buildingsResult = await powerShellService.getPlaces('Building');
+  if (buildingsResult.exitCode !== 0) {
+    throw new Error('Failed to fetch buildings from Microsoft Places');
+  }
+  
+  const buildingsData = await powerShellService.parsePlacesOutput(`Building\n${buildingsResult.output}`);
+  console.log(`Found ${buildingsData.length} buildings in Microsoft Places`);
+  
+  // Save buildings to local database
+  for (const buildingData of buildingsData) {
+    const existing = await storage.getBuildingByPlaceId(buildingData.PlaceId);
+    if (!existing) {
+      await storage.createBuilding({
+        placeId: buildingData.PlaceId,
+        name: buildingData.DisplayName || buildingData.Name || 'Unknown Building',
+        description: buildingData.Description || null,
+        countryOrRegion: buildingData.CountryOrRegion || null,
+        state: buildingData.State || null,
+        city: buildingData.City || null,
+        street: buildingData.Street || null,
+        postalCode: buildingData.PostalCode || null,
+        phone: buildingData.Phone || null,
+        isActive: true,
+      });
+    }
+  }
+  
+  // Get and save floors
+  const floorsResult = await powerShellService.getPlaces('Floor');
+  if (floorsResult.exitCode === 0) {
+    const floorsData = await powerShellService.parsePlacesOutput(`Floor\n${floorsResult.output}`);
+    for (const floorData of floorsData) {
+      const building = await storage.getBuildingByPlaceId(floorData.ParentId);
+      if (building) {
+        const existing = await storage.getFloorByPlaceId(floorData.PlaceId);
+        if (!existing) {
+          await storage.createFloor({
+            placeId: floorData.PlaceId,
+            name: floorData.DisplayName || floorData.Name || 'Unknown Floor',
+            description: floorData.Description || null,
+            buildingId: building.id,
+            parentPlaceId: floorData.ParentId,
+          });
+        }
+      }
+    }
+  }
+  
+  // Get and save sections
+  const sectionsResult = await powerShellService.getPlaces('Section');
+  if (sectionsResult.exitCode === 0) {
+    const sectionsData = await powerShellService.parsePlacesOutput(`Section\n${sectionsResult.output}`);
+    for (const sectionData of sectionsData) {
+      const floor = await storage.getFloorByPlaceId(sectionData.ParentId);
+      if (floor) {
+        const existing = await storage.getSectionByPlaceId(sectionData.PlaceId);
+        if (!existing) {
+          await storage.createSection({
+            placeId: sectionData.PlaceId,
+            name: sectionData.DisplayName || sectionData.Name || 'Unknown Section',
+            description: sectionData.Description || null,
+            floorId: floor.id,
+            parentPlaceId: sectionData.ParentId,
+          });
+        }
+      }
+    }
+  }
+  
+  console.log('Auto-sync completed successfully');
+}
+
+// Helper to refresh places data after creation
+async function refreshPlacesDataInternal() {
+  // This is a simplified version of the /api/places/refresh logic
+  // Only refreshes buildings, floors, sections, desks, and rooms
+  try {
+    // Get all buildings
+    const buildingsResult = await powerShellService.getPlaces('Building');
+    if (buildingsResult.exitCode === 0) {
+      const buildingsData = await powerShellService.parsePlacesOutput(`Building\n${buildingsResult.output}`);
+      for (const buildingData of buildingsData) {
+        const existing = await storage.getBuildingByPlaceId(buildingData.PlaceId);
+        if (!existing) {
+          await storage.createBuilding({
+            placeId: buildingData.PlaceId,
+            name: buildingData.DisplayName || buildingData.Name || 'Unknown Building',
+            description: buildingData.Description || null,
+            countryOrRegion: buildingData.CountryOrRegion || null,
+            state: buildingData.State || null,
+            city: buildingData.City || null,
+            street: buildingData.Street || null,
+            postalCode: buildingData.PostalCode || null,
+            phone: buildingData.Phone || null,
+            isActive: true,
+          });
+        }
+      }
+    }
+    // Floors
+    const floorsResult = await powerShellService.getPlaces('Floor');
+    if (floorsResult.exitCode === 0) {
+      const floorsData = await powerShellService.parsePlacesOutput(`Floor\n${floorsResult.output}`);
+      for (const floorData of floorsData) {
+        const building = await storage.getBuildingByPlaceId(floorData.ParentId);
+        if (building && typeof building.id === 'number') {
+          const existing = await storage.getFloorByPlaceId(floorData.PlaceId);
+          if (!existing) {
+            await storage.createFloor({
+              placeId: floorData.PlaceId,
+              name: floorData.DisplayName || floorData.Name || 'Unknown Floor',
+              description: floorData.Description || null,
+              buildingId: building.id,
+              parentPlaceId: floorData.ParentId,
+            });
+          }
+        }
+      }
+    }
+    // Sections
+    const sectionsResult = await powerShellService.getPlaces('Section');
+    if (sectionsResult.exitCode === 0) {
+      const sectionsData = await powerShellService.parsePlacesOutput(`Section\n${sectionsResult.output}`);
+      for (const sectionData of sectionsData) {
+        const floor = await storage.getFloorByPlaceId(sectionData.ParentId);
+        if (floor && typeof floor.id === 'number') {
+          const existing = await storage.getSectionByPlaceId(sectionData.PlaceId);
+          if (!existing) {
+            await storage.createSection({
+              placeId: sectionData.PlaceId,
+              name: sectionData.DisplayName || sectionData.Name || 'Unknown Section',
+              description: sectionData.Description || null,
+              floorId: floor.id,
+              parentPlaceId: sectionData.ParentId,
+            });
+          }
+        }
+      }
+    }
+    // Desks
+    const desksResult = await powerShellService.getPlaces('Desk');
+    if (desksResult.exitCode === 0) {
+      const desksData = await powerShellService.parsePlacesOutput(`Desk\n${desksResult.output}`);
+      for (const deskData of desksData) {
+        const section = await storage.getSectionByPlaceId(deskData.ParentId);
+        if (section && typeof section.id === 'number') {
+          const existing = await storage.getDeskByPlaceId(deskData.PlaceId);
+          if (!existing) {
+            await storage.createDesk({
+              placeId: deskData.PlaceId,
+              name: deskData.DisplayName || deskData.Name || 'Unknown Desk',
+              type: deskData.Type || 'Desk',
+              description: deskData.Description || null,
+              sectionId: section.id,
+              parentPlaceId: deskData.ParentId,
+              capacity: deskData.Capacity != null ? Number(deskData.Capacity) : null,
+              isBookable: deskData.IsBookable || false,
+            });
+          }
+        }
+      }
+    }
+    // Rooms
+    const roomsResult = await powerShellService.getPlaces('Room');
+    if (roomsResult.exitCode === 0) {
+      const roomsData = await powerShellService.parsePlacesOutput(`Room\n${roomsResult.output}`);
+      for (const roomData of roomsData) {
+        const section = await storage.getSectionByPlaceId(roomData.ParentId);
+        const floor = await storage.getFloorByPlaceId(roomData.ParentId);
+        if (section && section.id) {
+          const existing = await storage.getRoomByPlaceId?.(roomData.PlaceId);
+          if (!existing) {
+            await storage.createRoom?.({
+              placeId: roomData.PlaceId,
+              name: roomData.DisplayName || roomData.Name || 'Unknown Room',
+              type: roomData.Type || 'Room',
+              sectionId: section.id,
+              floorId: section.floorId, // Use the floor ID from the section
+              parentPlaceId: roomData.ParentId,
+              emailAddress: roomData.EmailAddress || null,
+              capacity: roomData.Capacity != null ? Number(roomData.Capacity) : null,
+              isBookable: roomData.IsBookable || false,
+            });
+          }
+        } else if (floor && floor.id) {
+          const existing = await storage.getRoomByPlaceId?.(roomData.PlaceId);
+          if (!existing) {
+            await storage.createRoom?.({
+              placeId: roomData.PlaceId,
+              name: roomData.DisplayName || roomData.Name || 'Unknown Room',
+              type: roomData.Type || 'Room',
+              sectionId: null, // No section
+              floorId: floor.id,
+              parentPlaceId: roomData.ParentId,
+              emailAddress: roomData.EmailAddress || null,
+              capacity: roomData.Capacity != null ? Number(roomData.Capacity) : null,
+              isBookable: roomData.IsBookable || false,
+            });
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Internal refresh after create failed:', err);
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize PowerShell service
@@ -22,6 +245,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       status: 'connected',
       errorMessage: null,
     });
+    
+    // Auto-sync places data on startup for dropdown population
+    console.log('Auto-syncing places data for dropdown population...');
+    try {
+      await autoSyncPlacesData();
+      console.log('Auto-sync completed successfully');
+    } catch (syncError) {
+      console.log('Auto-sync failed (this is normal if not connected to Exchange):', syncError instanceof Error ? syncError.message : 'Unknown error');
+    }
   } catch (error) {
     await storage.upsertConnectionStatus({
       serviceName: 'PowerShell',
@@ -279,7 +511,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Parsed floors: ${floorsData.length}`);
         for (const floorData of floorsData) {
           const building = await storage.getBuildingByPlaceId(floorData.ParentId);
-          if (building) {
+          if (building && typeof building.id === 'number') {
             const existing = await storage.getFloorByPlaceId(floorData.PlaceId);
             if (!existing) {
               await storage.createFloor({
@@ -339,7 +571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 sectionId: section.id,
                 parentPlaceId: deskData.ParentId,
                 emailAddress: deskData.EmailAddress || null,
-                capacity: deskData.Capacity || null,
+                capacity: deskData.Capacity != null ? Number(deskData.Capacity) : null,
                 isBookable: deskData.IsBookable || false,
               });
               desksCreated++;
@@ -358,18 +590,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const roomData of roomsData) {
           const section = await storage.getSectionByPlaceId(roomData.ParentId);
           const floor = await storage.getFloorByPlaceId(roomData.ParentId);
-          if (section || floor) {
+          if (section && section.id) {
+            // Room belongs to a section
             const existing = await storage.getRoomByPlaceId?.(roomData.PlaceId);
             if (!existing) {
               await storage.createRoom?.({
                 placeId: roomData.PlaceId,
                 name: roomData.DisplayName || roomData.Name || 'Unknown Room',
                 type: roomData.Type || 'Room',
-                sectionId: section ? section.id : null,
-                floorId: floor ? floor.id : null,
+                sectionId: section.id,
+                floorId: section.floorId, // Use the floor ID from the section
                 parentPlaceId: roomData.ParentId,
                 emailAddress: roomData.EmailAddress || null,
-                capacity: roomData.Capacity || null,
+                capacity: roomData.Capacity != null ? Number(roomData.Capacity) : null,
+                isBookable: roomData.IsBookable || false,
+              });
+              roomsCreated++;
+            }
+          } else if (floor && floor.id) {
+            // Room belongs directly to a floor
+            const existing = await storage.getRoomByPlaceId?.(roomData.PlaceId);
+            if (!existing) {
+              await storage.createRoom?.({
+                placeId: roomData.PlaceId,
+                name: roomData.DisplayName || roomData.Name || 'Unknown Room',
+                type: roomData.Type || 'Room',
+                sectionId: null, // No section
+                floorId: floor.id,
+                parentPlaceId: roomData.ParentId,
+                emailAddress: roomData.EmailAddress || null,
+                capacity: roomData.Capacity != null ? Number(roomData.Capacity) : null,
                 isBookable: roomData.IsBookable || false,
               });
               roomsCreated++;
@@ -481,17 +731,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create new places
   app.post('/api/places/building', async (req, res) => {
     try {
-      console.log('Received building data:', req.body);
-      
-      // Generate a unique placeId for the building
-      const placeId = `building-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
-      const buildingData = insertBuildingSchema.parse({
-        ...req.body,
-        placeId
-      });
-      console.log('Parsed building data:', buildingData);
-      
+      const buildingData = insertBuildingSchema.omit({ placeId: true }).parse(req.body);
       const result = await powerShellService.createPlace(
         'Building',
         buildingData.name,
@@ -505,23 +745,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           PostalCode: buildingData.postalCode || '',
         }
       );
-
       if (result.exitCode === 0) {
-        const building = await storage.createBuilding(buildingData);
-        
-        // Log command
         await storage.addCommandHistory({
-          command: `New-Place -DisplayName "${buildingData.name}" -Type Building`,
+          command: `New-Place -Type Building -DisplayName "${buildingData.name}"`,
           output: result.output,
           status: 'success',
         });
-
-        res.json({ building, result });
+        await refreshPlacesDataInternal();
+        res.json({ message: 'Building created successfully', result });
       } else {
         res.status(500).json({ message: 'Failed to create building', error: result.error });
       }
     } catch (error) {
-      console.error('Building validation error:', error);
       res.status(400).json({ 
         message: 'Invalid building data',
         error: error instanceof Error ? error.message : 'Unknown validation error',
@@ -533,494 +768,163 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/places/floor', async (req, res) => {
     try {
       const building = await storage.getBuildingById(req.body.buildingId);
-      
       if (!building) {
         return res.status(400).json({ message: 'Building not found' });
       }
-
-      const placeId = `floor-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const floorData = insertFloorSchema.parse({
-        ...req.body,
-        placeId,
-        parentPlaceId: building.placeId,
-      });
-
+      const floorData = insertFloorSchema.omit({ placeId: true, parentPlaceId: true }).parse(req.body);
       const result = await powerShellService.createPlace(
         'Floor',
         floorData.name,
         floorData.description || undefined,
         building.placeId
       );
-
       if (result.exitCode === 0) {
-        const floor = await storage.createFloor(floorData);
-        
         await storage.addCommandHistory({
-          command: `New-Place -DisplayName "${floorData.name}" -Type Floor -ParentId "${building.placeId}"`,
+          command: `New-Place -Type Floor -DisplayName "${floorData.name}" -ParentId "${building.placeId}"`,
           output: result.output,
           status: 'success',
         });
-
-        res.json({ floor, result });
+        await refreshPlacesDataInternal();
+        res.json({ message: 'Floor created successfully', result });
       } else {
         res.status(500).json({ message: 'Failed to create floor', error: result.error });
       }
     } catch (error) {
-      console.error('Floor validation error:', error);
-      res.status(400).json({ message: 'Invalid floor data', error: error instanceof Error ? error.message : 'Unknown validation error' });
+      res.status(400).json({ 
+        message: 'Invalid floor data',
+        error: error instanceof Error ? error.message : 'Unknown validation error',
+        received: req.body
+      });
     }
   });
 
   app.post('/api/places/section', async (req, res) => {
     try {
       const floor = await storage.getFloorById(req.body.floorId);
-      
       if (!floor) {
         return res.status(400).json({ message: 'Floor not found' });
       }
-
-      const placeId = `section-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const sectionData = insertSectionSchema.parse({
-        ...req.body,
-        placeId,
-        parentPlaceId: floor.placeId,
-      });
-
+      const sectionData = insertSectionSchema.omit({ placeId: true, parentPlaceId: true }).parse(req.body);
       const result = await powerShellService.createPlace(
         'Section',
         sectionData.name,
         sectionData.description || undefined,
         floor.placeId
       );
-
       if (result.exitCode === 0) {
-        const section = await storage.createSection(sectionData);
-        
         await storage.addCommandHistory({
-          command: `New-Place -DisplayName "${sectionData.name}" -Type Section -ParentId "${floor.placeId}"`,
+          command: `New-Place -Type Section -DisplayName "${sectionData.name}" -ParentId "${floor.placeId}"`,
           output: result.output,
           status: 'success',
         });
-
-        res.json({ section, result });
+        await refreshPlacesDataInternal();
+        res.json({ message: 'Section created successfully', result });
       } else {
         res.status(500).json({ message: 'Failed to create section', error: result.error });
       }
     } catch (error) {
-      console.error('Section validation error:', error);
-      res.status(400).json({ message: 'Invalid section data', error: error instanceof Error ? error.message : 'Unknown validation error' });
+      res.status(400).json({ 
+        message: 'Invalid section data',
+        error: error instanceof Error ? error.message : 'Unknown validation error',
+        received: req.body
+      });
     }
   });
 
   app.post('/api/places/desk', async (req, res) => {
     try {
       const section = await storage.getSectionById(req.body.sectionId);
-      
       if (!section) {
         return res.status(400).json({ message: 'Section not found' });
       }
-
-      const placeId = `desk-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const deskData = insertDeskSchema.parse({
-        ...req.body,
-        placeId,
-        parentPlaceId: section.placeId,
-      });
-
+      const deskData = insertDeskSchema.omit({ placeId: true, parentPlaceId: true }).parse(req.body);
       const result = await powerShellService.createPlace(
         'Desk',
         deskData.name,
-        undefined,
-        section.placeId,
-        {
-          Type: deskData.type,
-          EmailAddress: deskData.emailAddress || '',
-          Capacity: deskData.capacity?.toString() || '1',
-          IsBookable: deskData.isBookable ? 'true' : 'false',
-        }
+        deskData.description || undefined,
+        section.placeId
       );
-
       if (result.exitCode === 0) {
-        const desk = await storage.createDesk(deskData);
-        
         await storage.addCommandHistory({
-          command: `New-Place -DisplayName "${deskData.name}" -Type ${deskData.type} -ParentId "${section.placeId}" -EmailAddress "${deskData.emailAddress}" -Capacity ${deskData.capacity} -IsBookable $${deskData.isBookable}`,
+          command: `New-Place -Type Desk -DisplayName "${deskData.name}" -ParentId "${section.placeId}"`,
           output: result.output,
           status: 'success',
         });
-
-        res.json({ desk, result });
+        await refreshPlacesDataInternal();
+        res.json({ message: 'Desk created successfully', result });
       } else {
         res.status(500).json({ message: 'Failed to create desk', error: result.error });
       }
     } catch (error) {
-      console.error('Desk validation error:', error);
-      res.status(400).json({ message: 'Invalid desk data', error: error instanceof Error ? error.message : 'Unknown validation error' });
+      res.status(400).json({ 
+        message: 'Invalid desk data',
+        error: error instanceof Error ? error.message : 'Unknown validation error',
+        received: req.body
+      });
     }
   });
 
   app.post('/api/places/room', async (req, res) => {
     try {
-      const floor = await storage.getFloorById(req.body.floorId);
+      // Room can only be created under a section (Microsoft Places limitation)
+      let parentPlaceId: string | undefined;
+      let floorId: number | undefined;
+      let sectionId: number | undefined;
       
-      if (!floor) {
-        return res.status(400).json({ message: 'Floor not found' });
+      if (req.body.sectionId) {
+        const section = await storage.getSectionById(req.body.sectionId);
+        if (!section) {
+          return res.status(400).json({ message: 'Section not found' });
+        }
+        parentPlaceId = section.placeId;
+        floorId = section.floorId;
+        sectionId = section.id;
+      } else {
+        return res.status(400).json({ 
+          message: 'Section ID is required. Rooms can only be created under sections in Microsoft Places.',
+          error: 'Microsoft Places limitation: Rooms must be created under sections, not directly under floors.'
+        });
+      }
+      
+      const roomData = insertRoomSchema.omit({ placeId: true, parentPlaceId: true, floorId: true, sectionId: true }).parse(req.body);
+      
+      const trimmedName = roomData.name.trim();
+
+      if (!roomData.emailAddress) {
+        return res.status(400).json({
+          message: 'Email address is required to create a bookable room.'
+        });
       }
 
-      const parentId = req.body.sectionId ? 
-        (await storage.getSectionById(req.body.sectionId))?.placeId : 
-        floor.placeId;
-
-      const placeId = `room-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const roomData = insertRoomSchema.parse({
-        ...req.body,
-        placeId,
-        parentPlaceId: parentId || floor.placeId,
-      });
-
-      const result = await powerShellService.createPlace(
-        'Room',
-        roomData.name,
-        undefined,
-        parentId || floor.placeId,
-        {
-          EmailAddress: roomData.emailAddress || '',
-          Capacity: roomData.capacity?.toString() || '1',
-          IsBookable: roomData.isBookable ? 'true' : 'false',
-        }
+      // Use the enhanced room creation method
+      const result = await powerShellService.createRoom(
+        trimmedName,
+        roomData.description || '',
+        parentPlaceId,
+        roomData.emailAddress,
+        roomData.capacity || undefined,
+        roomData.isBookable || true
       );
-
+      
       if (result.exitCode === 0) {
-        const room = await storage.createRoom(roomData);
-        
         await storage.addCommandHistory({
-          command: `New-Place -DisplayName "${roomData.name}" -Type Room -ParentId "${parentId || floor.placeId}" -EmailAddress "${roomData.emailAddress}" -Capacity ${roomData.capacity} -IsBookable $${roomData.isBookable}`,
+          command: `Create/associate room '${trimmedName}' with email '${roomData.emailAddress}'`,
           output: result.output,
           status: 'success',
         });
-
-        res.json({ room, result });
+        await refreshPlacesDataInternal();
+        res.json({ message: 'Room created or associated successfully', result });
       } else {
+        console.error('Failed to create room in PowerShell:', result);
         res.status(500).json({ message: 'Failed to create room', error: result.error });
       }
     } catch (error) {
-      console.error('Room validation error:', error);
-      res.status(400).json({ message: 'Invalid room data', error: error instanceof Error ? error.message : 'Unknown validation error' });
-    }
-  });
-
-  // Update places endpoints
-  app.put('/api/places/building/:id', async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const building = await storage.getBuildingById(id);
-      
-      if (!building) {
-        return res.status(404).json({ message: 'Building not found' });
-      }
-
-      const buildingData = insertBuildingSchema.partial().parse(req.body);
-      
-      // Update via PowerShell
-      const result = await powerShellService.updatePlace(building.placeId, buildingData);
-      
-      if (result.exitCode === 0) {
-        const updated = await storage.updateBuilding(id, buildingData);
-        
-        await storage.addCommandHistory({
-          command: `Set-Place -Identity "${building.placeId}" -DisplayName "${buildingData.name || building.name}"`,
-          output: result.output,
-          status: 'success',
-        });
-
-        res.json({ building: updated, result });
-      } else {
-        res.status(500).json({ message: 'Failed to update building', error: result.error });
-      }
-    } catch (error) {
-      console.error('Building update error:', error);
-      res.status(400).json({ message: 'Invalid building data', error: error instanceof Error ? error.message : 'Unknown error' });
-    }
-  });
-
-  app.put('/api/places/floor/:id', async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const floor = await storage.getFloorById(id);
-      
-      if (!floor) {
-        return res.status(404).json({ message: 'Floor not found' });
-      }
-
-      const floorData = insertFloorSchema.partial().parse(req.body);
-      
-      const result = await powerShellService.updatePlace(floor.placeId, floorData);
-      
-      if (result.exitCode === 0) {
-        const updated = await storage.updateFloor(id, floorData);
-        
-        await storage.addCommandHistory({
-          command: `Set-Place -Identity "${floor.placeId}" -DisplayName "${floorData.name || floor.name}"`,
-          output: result.output,
-          status: 'success',
-        });
-
-        res.json({ floor: updated, result });
-      } else {
-        res.status(500).json({ message: 'Failed to update floor', error: result.error });
-      }
-    } catch (error) {
-      console.error('Floor update error:', error);
-      res.status(400).json({ message: 'Invalid floor data', error: error instanceof Error ? error.message : 'Unknown error' });
-    }
-  });
-
-  app.put('/api/places/section/:id', async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const section = await storage.getSectionById(id);
-      
-      if (!section) {
-        return res.status(404).json({ message: 'Section not found' });
-      }
-
-      const sectionData = insertSectionSchema.partial().parse(req.body);
-      
-      const result = await powerShellService.updatePlace(section.placeId, sectionData);
-      
-      if (result.exitCode === 0) {
-        const updated = await storage.updateSection(id, sectionData);
-        
-        await storage.addCommandHistory({
-          command: `Set-Place -Identity "${section.placeId}" -DisplayName "${sectionData.name || section.name}"`,
-          output: result.output,
-          status: 'success',
-        });
-
-        res.json({ section: updated, result });
-      } else {
-        res.status(500).json({ message: 'Failed to update section', error: result.error });
-      }
-    } catch (error) {
-      console.error('Section update error:', error);
-      res.status(400).json({ message: 'Invalid section data', error: error instanceof Error ? error.message : 'Unknown error' });
-    }
-  });
-
-  app.put('/api/places/desk/:id', async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const desk = await storage.getDeskById(id);
-      
-      if (!desk) {
-        return res.status(404).json({ message: 'Desk not found' });
-      }
-
-      const deskData = insertDeskSchema.partial().parse(req.body);
-      
-      const result = await powerShellService.updatePlace(desk.placeId, deskData);
-      
-      if (result.exitCode === 0) {
-        const updated = await storage.updateDesk(id, deskData);
-        
-        await storage.addCommandHistory({
-          command: `Set-Place -Identity "${desk.placeId}" -DisplayName "${deskData.name || desk.name}"`,
-          output: result.output,
-          status: 'success',
-        });
-
-        res.json({ desk: updated, result });
-      } else {
-        res.status(500).json({ message: 'Failed to update desk', error: result.error });
-      }
-    } catch (error) {
-      console.error('Desk update error:', error);
-      res.status(400).json({ message: 'Invalid desk data', error: error instanceof Error ? error.message : 'Unknown error' });
-    }
-  });
-
-  app.put('/api/places/room/:id', async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const room = await storage.getRoomById(id);
-      
-      if (!room) {
-        return res.status(404).json({ message: 'Room not found' });
-      }
-
-      const roomData = insertRoomSchema.partial().parse(req.body);
-      
-      const result = await powerShellService.updatePlace(room.placeId, roomData);
-      
-      if (result.exitCode === 0) {
-        const updated = await storage.updateRoom(id, roomData);
-        
-        await storage.addCommandHistory({
-          command: `Set-Place -Identity "${room.placeId}" -DisplayName "${roomData.name || room.name}"`,
-          output: result.output,
-          status: 'success',
-        });
-
-        res.json({ room: updated, result });
-      } else {
-        res.status(500).json({ message: 'Failed to update room', error: result.error });
-      }
-    } catch (error) {
-      console.error('Room update error:', error);
-      res.status(400).json({ message: 'Invalid room data', error: error instanceof Error ? error.message : 'Unknown error' });
-    }
-  });
-
-  // Delete places endpoints  
-  app.delete('/api/places/building/:id', async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const building = await storage.getBuildingById(id);
-      
-      if (!building) {
-        return res.status(404).json({ message: 'Building not found' });
-      }
-
-      // Delete via PowerShell
-      const result = await powerShellService.deletePlace(building.placeId);
-      
-      if (result.exitCode === 0) {
-        await storage.deleteBuilding(id);
-
-        await storage.addCommandHistory({
-          command: `Remove-Place -Identity "${building.placeId}" -Confirm:$false`,
-          output: result.output,
-          status: 'success',
-        });
-
-        res.json({ message: 'Building deleted successfully', result });
-      } else {
-        res.status(500).json({ message: 'Failed to delete building', error: result.error });
-      }
-    } catch (error) {
-      console.error('Building deletion error:', error);
-      res.status(500).json({ message: 'Failed to delete building', error: error instanceof Error ? error.message : 'Unknown error' });
-    }
-  });
-
-  // Similar delete endpoints for other types
-  app.delete('/api/places/floor/:id', async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const floor = await storage.getFloorById(id);
-      
-      if (!floor) {
-        return res.status(404).json({ message: 'Floor not found' });
-      }
-
-      const result = await powerShellService.deletePlace(floor.placeId);
-      
-      if (result.exitCode === 0) {
-        await storage.deleteFloor(id);
-
-        await storage.addCommandHistory({
-          command: `Remove-Place -Identity "${floor.placeId}" -Confirm:$false`,
-          output: result.output,
-          status: 'success',
-        });
-
-        res.json({ message: 'Floor deleted successfully', result });
-      } else {
-        res.status(500).json({ message: 'Failed to delete floor', error: result.error });
-      }
-    } catch (error) {
-      console.error('Floor deletion error:', error);
-      res.status(500).json({ message: 'Failed to delete floor', error: error instanceof Error ? error.message : 'Unknown error' });
-    }
-  });
-
-  app.delete('/api/places/section/:id', async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const section = await storage.getSectionById(id);
-      
-      if (!section) {
-        return res.status(404).json({ message: 'Section not found' });
-      }
-
-      const result = await powerShellService.deletePlace(section.placeId);
-      
-      if (result.exitCode === 0) {
-        await storage.deleteSection(id);
-
-        await storage.addCommandHistory({
-          command: `Remove-Place -Identity "${section.placeId}" -Confirm:$false`,
-          output: result.output,
-          status: 'success',
-        });
-
-        res.json({ message: 'Section deleted successfully', result });
-      } else {
-        res.status(500).json({ message: 'Failed to delete section', error: result.error });
-      }
-    } catch (error) {
-      console.error('Section deletion error:', error);
-      res.status(500).json({ message: 'Failed to delete section', error: error instanceof Error ? error.message : 'Unknown error' });
-    }
-  });
-
-  app.delete('/api/places/desk/:id', async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const desk = await storage.getDeskById(id);
-      
-      if (!desk) {
-        return res.status(404).json({ message: 'Desk not found' });
-      }
-
-      const result = await powerShellService.deletePlace(desk.placeId);
-      
-      if (result.exitCode === 0) {
-        await storage.deleteDesk(id);
-
-        await storage.addCommandHistory({
-          command: `Remove-Place -Identity "${desk.placeId}" -Confirm:$false`,
-          output: result.output,
-          status: 'success',
-        });
-
-        res.json({ message: 'Desk deleted successfully', result });
-      } else {
-        res.status(500).json({ message: 'Failed to delete desk', error: result.error });
-      }
-    } catch (error) {
-      console.error('Desk deletion error:', error);
-      res.status(500).json({ message: 'Failed to delete desk', error: error instanceof Error ? error.message : 'Unknown error' });
-    }
-  });
-
-  app.delete('/api/places/room/:id', async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const room = await storage.getRoomById(id);
-      
-      if (!room) {
-        return res.status(404).json({ message: 'Room not found' });
-      }
-
-      const result = await powerShellService.deletePlace(room.placeId);
-      
-      if (result.exitCode === 0) {
-        await storage.deleteRoom(id);
-
-        await storage.addCommandHistory({
-          command: `Remove-Place -Identity "${room.placeId}" -Confirm:$false`,
-          output: result.output,
-          status: 'success',
-        });
-
-        res.json({ message: 'Room deleted successfully', result });
-      } else {
-        res.status(500).json({ message: 'Failed to delete room', error: result.error });
-      }
-    } catch (error) {
-      console.error('Room deletion error:', error);
-      res.status(500).json({ message: 'Failed to delete room', error: error instanceof Error ? error.message : 'Unknown error' });
+      console.error('Error processing /api/places/room:', error);
+      res.status(400).json({ 
+        message: 'Invalid room data',
+        error: error instanceof Error ? error.message : 'Unknown validation error',
+        received: req.body
+      });
     }
   });
 
