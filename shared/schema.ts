@@ -57,7 +57,7 @@ export const desks = pgTable("desks", {
 export const rooms = pgTable("rooms", {
   id: serial("id").primaryKey(),
   placeId: text("place_id").notNull().unique(),
-  floorId: integer("floor_id").references(() => floors.id).notNull(),
+  floorId: integer("floor_id").references(() => floors.id), // Optional - rooms can be orphaned
   sectionId: integer("section_id").references(() => sections.id), // Optional - rooms can be directly on floors
   parentPlaceId: text("parent_place_id").notNull(),
   name: text("name").notNull(),

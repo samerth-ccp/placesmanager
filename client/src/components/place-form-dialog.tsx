@@ -120,9 +120,9 @@ export function PlaceFormDialog({
       return {
         ...editData,
         // Ensure proper ID mapping for dropdowns
-        buildingId: editData.buildingId || parentData?.buildings?.[0]?.id || 0,
-        floorId: editData.floorId || parentData?.floors?.[0]?.id || 0,
-        sectionId: editData.sectionId || parentData?.sections?.[0]?.id || 0,
+        buildingId: Number(editData.buildingId) || parentData?.buildings?.[0]?.id || 0,
+        floorId: Number(editData.floorId) || parentData?.floors?.[0]?.id || 0,
+        sectionId: Number(editData.sectionId) || parentData?.sections?.[0]?.id || 0,
       };
     }
 

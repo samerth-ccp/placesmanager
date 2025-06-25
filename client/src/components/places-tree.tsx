@@ -143,7 +143,7 @@ export function PlacesTree() {
     }
   };
 
-  const renderDeskNode = (desk: any) => (
+  const renderDeskNode = (desk: any, section: any, floor: any, building: any) => (
     <div
       key={desk.id}
       className="flex items-center justify-between p-2 ml-4 rounded-lg hover:bg-neutral-50"
@@ -170,7 +170,7 @@ export function PlacesTree() {
         <div className="flex items-center space-x-1">
           <Button variant="ghost" size="sm" onClick={(e) => {
             e.stopPropagation();
-            openEditDialog("desk", { ...desk, sectionId: section.id, floorId: floor.id, buildingId: building.id });
+            openEditDialog("desk", { ...desk, sectionId: Number(section.id), floorId: Number(floor.id), buildingId: Number(building.id) });
           }}>
             <Edit size={12} />
           </Button>
@@ -182,7 +182,7 @@ export function PlacesTree() {
     </div>
   );
 
-  const renderSectionNode = (section: any) => {
+  const renderSectionNode = (section: any, floor: any, building: any) => {
     const sectionId = `section-${section.id}`;
     const isExpanded = expandedNodes.has(sectionId);
     const hasDesks = section.desks && section.desks.length > 0;
@@ -214,7 +214,7 @@ export function PlacesTree() {
           <div className="flex items-center space-x-1">
             <Button variant="ghost" size="sm" onClick={(e) => {
               e.stopPropagation();
-              openEditDialog("section", { ...section, floorId: floor.id, buildingId: building.id });
+              openEditDialog("section", { ...section, floorId: Number(floor.id), buildingId: Number(building.id) });
             }}>
               <Edit size={12} />
             </Button>
@@ -226,14 +226,14 @@ export function PlacesTree() {
 
         {hasDesks && isExpanded && (
           <div className="pl-8 pb-3 space-y-1">
-            {section.desks.map(renderDeskNode)}
+            {section.desks.map(desk => renderDeskNode(desk, section, floor, building))}
           </div>
         )}
       </div>
     );
   };
 
-  const renderRoomNode = (room: any) => (
+  const renderRoomNode = (room: any, floor: any, building: any) => (
     <div
       key={room.id}
       className="flex items-center justify-between p-2 ml-4 rounded-lg hover:bg-neutral-50"
@@ -257,7 +257,7 @@ export function PlacesTree() {
         <div className="flex items-center space-x-1">
           <Button variant="ghost" size="sm" onClick={(e) => {
             e.stopPropagation();
-            openEditDialog("room", { ...room, floorId: floor.id, buildingId: building.id });
+            openEditDialog("room", { ...room, floorId: Number(floor.id), buildingId: Number(building.id) });
           }}>
             <Edit size={12} />
           </Button>
@@ -269,7 +269,7 @@ export function PlacesTree() {
     </div>
   );
 
-  const renderFloorNode = (floor: any) => {
+  const renderFloorNode = (floor: any, building: any) => {
     const floorId = `floor-${floor.id}`;
     const isExpanded = expandedNodes.has(floorId);
     const hasSections = floor.sections && floor.sections.length > 0;
@@ -302,7 +302,7 @@ export function PlacesTree() {
           <div className="flex items-center space-x-1">
             <Button variant="ghost" size="sm" onClick={(e) => {
               e.stopPropagation();
-              openEditDialog("floor", { ...floor, buildingId: building.id });
+              openEditDialog("floor", { ...floor, buildingId: Number(building.id) });
             }}>
               <Edit size={12} />
             </Button>
@@ -312,10 +312,10 @@ export function PlacesTree() {
           </div>
         </div>
 
-        {(hasSections || hasRooms) && isExpanded && (
+        {isExpanded && (
           <div className="pl-8 pb-4 space-y-2">
-            {floor.sections.map(renderSectionNode)}
-            {floor.rooms && floor.rooms.map(renderRoomNode)}
+            {floor.sections.map(section => renderSectionNode(section, floor, building))}
+            {floor.rooms && floor.rooms.map(room => renderRoomNode(room, floor, building))}
           </div>
         )}
       </div>
@@ -363,9 +363,9 @@ export function PlacesTree() {
           </div>
         </div>
 
-        {hasFloors && isExpanded && (
+        {isExpanded && (
           <div className="pl-8 pb-4 space-y-2">
-            {(building.floors || []).map(renderFloorNode)}
+            {(building.floors || []).map(floor => renderFloorNode(floor, building))}
           </div>
         )}
       </div>

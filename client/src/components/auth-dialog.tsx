@@ -15,11 +15,13 @@ interface AuthDialogProps {
 
 export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
   const [tenantDomain, setTenantDomain] = useState("");
+  const [connectionStep, setConnectionStep] = useState<'idle' | 'connecting' | 'verifying' | 'complete'>('idle');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const connectMutation = useMutation({
     mutationFn: async (domain?: string) => {
+      setConnectionStep('connecting');
       const response = await fetch('/api/connections/exchange', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -37,19 +39,39 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
         }
         throw new Error(errorMessage);
       }
-      return response.json();
+      
+      setConnectionStep('verifying');
+      const result = await response.json();
+      
+      // If connection was successful, verify it
+      if (result.connection?.status === 'connected') {
+        setConnectionStep('complete');
+      }
+      
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       // Force refresh of connection status
       queryClient.invalidateQueries({ queryKey: ['/api/connections'] });
       queryClient.refetchQueries({ queryKey: ['/api/connections'] });
-      toast({
-        title: "Connection Successful",
-        description: "Connected to Exchange Online successfully",
-      });
-      onOpenChange(false);
+      
+      if (data.connection?.status === 'connected') {
+        toast({
+          title: "Connection Successful",
+          description: "Connected to Exchange Online successfully",
+        });
+        onOpenChange(false);
+      } else {
+        toast({
+          title: "Connection Failed",
+          description: data.verification?.error || data.result?.error || "Failed to connect to Exchange Online",
+          variant: "destructive",
+        });
+      }
+      setConnectionStep('idle');
     },
     onError: (error) => {
+      setConnectionStep('idle');
       toast({
         title: "Connection Failed",
         description: error instanceof Error ? error.message : "Failed to connect to Exchange Online",
@@ -60,6 +82,19 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
 
   const handleConnect = () => {
     connectMutation.mutate(tenantDomain || undefined);
+  };
+
+  const getStepDescription = () => {
+    switch (connectionStep) {
+      case 'connecting':
+        return 'Authenticating with Microsoft 365...';
+      case 'verifying':
+        return 'Verifying connection...';
+      case 'complete':
+        return 'Connection verified successfully!';
+      default:
+        return 'Authenticate with your Microsoft 365 tenant';
+    }
   };
 
   return (
@@ -73,7 +108,7 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
             <div>
               <DialogTitle>Connect to Exchange Online</DialogTitle>
               <DialogDescription>
-                Authenticate with your Microsoft 365 tenant
+                {getStepDescription()}
               </DialogDescription>
             </div>
           </div>
